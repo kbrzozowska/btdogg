@@ -6,10 +6,12 @@ resolvers += "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/
 
 libraryDependencies ++= {
   val mldhtV      = "0.0.1-SNAPSHOT"
+  val akkaV = "2.4.9"
   val scalaTestV  = "2.2.6"
   val scalaMockV  = "3.2.2"
   Seq(
     "com.realizationtime.mldht.core"  %   "libmldht"                    % mldhtV,
+    "com.typesafe.akka"               %%  "akka-stream"                 % akkaV,
     "org.scalatest"                   %%  "scalatest"                   % scalaTestV  % "test",
     "org.scalamock"                   %%  "scalamock-scalatest-support" % scalaMockV  % "test"
   )
