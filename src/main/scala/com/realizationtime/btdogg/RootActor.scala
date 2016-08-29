@@ -1,24 +1,41 @@
 package com.realizationtime.btdogg
 
-import akka.actor.{Actor, Props}
+import akka.actor.{Actor, ActorRef, Props}
+import akka.pattern.AskableActorRef
+import akka.stream.OverflowStrategy
+import akka.stream.actor.ActorPublisher
+import akka.stream.scaladsl.{Keep, Sink, Source}
 import com.realizationtime.btdogg.HashesSource.GetAllKeys
-import com.realizationtime.btdogg.RootActor.GetHashesSource
+import com.realizationtime.btdogg.RootActor.{Boot, GetHashesSources, Shutdown}
 
 class RootActor extends Actor with akka.actor.ActorLogging {
 
-  private val hashesSource = context.actorOf(Props[HashesSource])
+  private val sourcesHub: ActorRef =
 
   override def receive = {
-    case msg: GetHashesSource => sender() ! hashesSource
-    case "shutdown" => {
+    case Boot(n) => boot(n)
+  }
+
+  def booting = {
+
+  }
+
+  def normalOperation = {
+    case msg: GetHashesSources => sender() ! hashesSources
+    case Shutdown() => {
       log.info("shutting down actor system!")
       context.system.terminate()
     }
-    case msg: GetAllKeys => hashesSource forward msg
+  }
+
+  def boot(hashesCount: Int): Unit = {
+
   }
 
 }
 
 object RootActor {
-  final case class GetHashesSource()
+  final case class GetHashesSources()
+  final case class Boot(sourcesCount: Int)
+  final case class Shutdown()
 }

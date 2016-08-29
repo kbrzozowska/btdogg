@@ -1,20 +1,24 @@
 package com.realizationtime.btdogg
 
-import java.nio.file.{Path, Paths}
+import java.nio.file.{Files, Path, Paths}
 
 import akka.actor.ActorRef
+import akka.stream.scaladsl.Source
+import com.realizationtime.btdogg.BtDoggConfiguration.storageBaseDir
 import lbms.plugins.mldht.DHTConfiguration
 import lbms.plugins.mldht.kad.DHT.IncomingMessageListener
 import lbms.plugins.mldht.kad.messages._
 import lbms.plugins.mldht.kad.{DHT, Key}
 
-class DhtWrapper(val hashesSource: ActorRef) {
+class DhtWrapper(val hashesSource: ActorRef, port: Integer) {
 
   def sendKey(infoHash: Key): Unit = {
     hashesSource ! TKey(infoHash)
   }
 
-  val dht = new DHT(DHT.DHTtype.IPV4_DHT, new Key("0123456789abcdef01230123456789abcdef0123"))
+  val storagePath = Paths.get(storageBaseDir, port.toString)
+  Files.createDirectories(storagePath)
+  val dht = new DHT(DHT.DHTtype.IPV4_DHT)
 
   dht.addIncomingMessageListener(new IncomingMessageListener {
     override def received(dht: DHT, msg: MessageBase): Unit = msg match {
@@ -26,13 +30,13 @@ class DhtWrapper(val hashesSource: ActorRef) {
   })
 
   dht.start(new DHTConfiguration {
-    override def getListeningPort: Int = 24001
+    override def getListeningPort: Int = port
 
     override def allowMultiHoming(): Boolean = false
 
     override def isPersistingID: Boolean = false
 
-    override def getStoragePath: Path = Paths.get("/tmp/mldht")
+    override def getStoragePath: Path = storagePath
 
     override def noRouterBootstrap(): Boolean = false
   })
