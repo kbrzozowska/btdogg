@@ -3,7 +3,6 @@ package com.realizationtime.btdogg
 import java.nio.file.{Files, Path, Paths}
 
 import akka.actor.ActorRef
-import akka.stream.scaladsl.Source
 import com.realizationtime.btdogg.BtDoggConfiguration.storageBaseDir
 import lbms.plugins.mldht.DHTConfiguration
 import lbms.plugins.mldht.kad.DHT.IncomingMessageListener
@@ -12,7 +11,11 @@ import lbms.plugins.mldht.kad.{DHT, Key}
 
 class DhtWrapper(val hashesSource: ActorRef, port: Integer) {
 
-  def sendKey(infoHash: Key): Unit = {
+  def stop() = {
+    dht.stop()
+  }
+
+  private def sendKey(infoHash: Key): Unit = {
     hashesSource ! TKey(infoHash)
   }
 

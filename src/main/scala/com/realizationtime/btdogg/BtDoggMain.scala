@@ -16,7 +16,7 @@ import scala.concurrent.duration._
 class BtDoggMain {
 
   def scheduleShutdown(delay: FiniteDuration) = {
-    system.scheduler.scheduleOnce(delay, rootActor, "shutdown")
+    system.scheduler.scheduleOnce(delay, rootActor, RootActor.Shutdown())
   }
 
   private implicit val system = ActorSystem("BtDogg")

@@ -2,7 +2,7 @@ package com.realizationtime.btdogg
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import com.realizationtime.btdogg.HashesSource.{Start, StartingCompleted}
-import com.realizationtime.btdogg.SourcesHub.{Init, NodeStarted, StartNode}
+import com.realizationtime.btdogg.SourcesHub.{Init, NodeStarted, StartNode, Stop}
 
 class SourcesHub extends Actor with ActorLogging {
 
@@ -19,6 +19,9 @@ class SourcesHub extends Actor with ActorLogging {
         context.become(working(hashesPublisher, state.startNode), discardOld = true)
       case StartingCompleted(node) =>
         context.become(working(hashesPublisher, state.nodeStarted(node)), discardOld = true)
+      case Stop() =>
+        (state.activeNodes ++ state.startingNodesToRequesters.keySet)
+          .foreach(_ ! HashesSource.Stop())
     }
   }
 
@@ -63,4 +66,5 @@ object SourcesHub {
   final case class Init(HashesPublisher: ActorRef)
   final case class StartNode()
   final case class NodeStarted(portNumber: Int)
+  final case class Stop()
 }

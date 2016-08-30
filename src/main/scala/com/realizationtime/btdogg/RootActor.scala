@@ -36,7 +36,16 @@ class RootActor extends Actor with ActorLogging {
     bootingBehaviour
   }
 
+  import scala.concurrent.duration._
   def normalOperation: Receive = {
+    case Shutdown() =>
+      log.info("Ordering shutdown of dht nodes")
+      sourcesHub ! SourcesHub.Stop()
+      become(shuttingDown)
+      context.system.scheduler.scheduleOnce(10 seconds, self, Shutdown())
+  }
+
+  def shuttingDown: Receive = {
     case Shutdown() =>
       log.info("shutting down actor system!")
       context.system.terminate()

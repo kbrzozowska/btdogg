@@ -1,7 +1,7 @@
 package com.realizationtime.btdogg
 
 import akka.actor.{Actor, ActorRef}
-import com.realizationtime.btdogg.HashesSource.{Start, StartingCompleted}
+import com.realizationtime.btdogg.HashesSource.{Start, StartingCompleted, Stop}
 
 class HashesSource extends Actor with akka.actor.ActorLogging {
 
@@ -15,6 +15,9 @@ class HashesSource extends Actor with akka.actor.ActorLogging {
     val dht: DhtWrapper = new DhtWrapper(self, portNumber)
     val workingBehaviour: Receive = {
       case k: TKey => context.parent ! k
+      case Stop() =>
+        dht.stop()
+        context.stop(self)
     }
     sender ! StartingCompleted(self)
     workingBehaviour
@@ -25,4 +28,5 @@ class HashesSource extends Actor with akka.actor.ActorLogging {
 object HashesSource {
   final case class Start(portNumber: Int)
   final case class StartingCompleted(node: ActorRef)
+  final case class Stop()
 }
