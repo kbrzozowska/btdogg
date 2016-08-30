@@ -1,26 +1,28 @@
 package com.realizationtime.btdogg
 
-import akka.actor.Actor
-import akka.stream.actor.ActorPublisher
-import com.realizationtime.btdogg.HashesSource.GetAllKeys
+import akka.actor.{Actor, ActorRef}
+import com.realizationtime.btdogg.HashesSource.{Start, StartingCompleted}
 
-class HashesSource extends Actor with ActorPublisher[TKey] with akka.actor.ActorLogging {
-
-  var keys = Set[TKey]()
+class HashesSource extends Actor with akka.actor.ActorLogging {
 
   override def receive: Receive = {
-    case key: TKey => {
-      if (!keys.contains(key)) {
-        keys += key
-        log.info(s"New key: $key")
-        onNext(key)
-      }
+    case Start(portNumber) =>
+      context.become(working(portNumber))
+  }
+
+  def working(portNumber: Int): Receive = {
+    log.info(s"node $portNumber starting")
+    val dht: DhtWrapper = new DhtWrapper(self, portNumber)
+    val workingBehaviour: Receive = {
+      case k: TKey => context.parent ! k
     }
-    case GetAllKeys => sender() ! keys
+    sender ! StartingCompleted(self)
+    workingBehaviour
   }
 
 }
 
 object HashesSource {
-  final case class GetAllKeys()
+  final case class Start(portNumber: Int)
+  final case class StartingCompleted(node: ActorRef)
 }
