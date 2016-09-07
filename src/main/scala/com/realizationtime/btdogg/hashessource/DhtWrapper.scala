@@ -1,9 +1,10 @@
-package com.realizationtime.btdogg
+package com.realizationtime.btdogg.hashessource
 
 import java.nio.file.{Files, Path, Paths}
 
 import akka.actor.ActorRef
 import com.realizationtime.btdogg.BtDoggConfiguration.HashSourcesConfig.{bootNodeHost, bootNodePort, storageBaseDir}
+import com.realizationtime.btdogg.TKey
 import lbms.plugins.mldht.DHTConfiguration
 import lbms.plugins.mldht.kad.DHT.IncomingMessageListener
 import lbms.plugins.mldht.kad.messages._

@@ -1,6 +1,5 @@
 package com.realizationtime.btdogg
 
-import java.io.File
 import java.nio.file.{Files, Paths}
 
 import com.typesafe.config.{Config, ConfigFactory}

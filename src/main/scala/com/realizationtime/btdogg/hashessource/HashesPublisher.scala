@@ -1,8 +1,9 @@
-package com.realizationtime.btdogg
+package com.realizationtime.btdogg.hashessource
 
 import akka.actor.{Actor, ActorLogging}
 import akka.stream.actor.ActorPublisher
 import akka.stream.actor.ActorPublisherMessage.{Cancel, Request}
+import com.realizationtime.btdogg.TKey
 
 import scala.annotation.tailrec
 

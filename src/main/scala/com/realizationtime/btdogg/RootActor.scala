@@ -3,7 +3,8 @@ package com.realizationtime.btdogg
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import com.realizationtime.btdogg.BtDoggConfiguration.HashSourcesConfig.nodesCreationInterval
 import com.realizationtime.btdogg.RootActor.{Boot, Shutdown}
-import com.realizationtime.btdogg.SourcesHub.{Init, NodeStarted, StartNode}
+import com.realizationtime.btdogg.hashessource.SourcesHub.{Init, NodeStarted, StartNode}
+import com.realizationtime.btdogg.hashessource.{HashesPublisher, SourcesHub}
 
 class RootActor extends Actor with ActorLogging {
 

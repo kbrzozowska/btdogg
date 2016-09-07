@@ -1,7 +1,8 @@
-package com.realizationtime.btdogg
+package com.realizationtime.btdogg.hashessource
 
 import akka.actor.{Actor, ActorRef}
-import com.realizationtime.btdogg.HashesSource.{Start, StartingCompleted, Stop}
+import com.realizationtime.btdogg.TKey
+import com.realizationtime.btdogg.hashessource.HashesSource.{Start, StartingCompleted, Stop}
 
 class HashesSource extends Actor with akka.actor.ActorLogging {
 

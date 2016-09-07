@@ -28,8 +28,6 @@ class BtDoggMain {
   log.info("Starting btdogg...")
   rootActor ! Boot(HashSourcesConfig.nodesCount)
 
-  var nodes: List[DhtWrapper] = List()
-
 }
 
 object BtDoggMain extends App {
