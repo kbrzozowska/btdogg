@@ -11,7 +11,7 @@ class HashesSource extends Actor with akka.actor.ActorLogging {
   }
 
   def working(portNumber: Int): Receive = {
-    log.info(s"node $portNumber starting")
+    log.debug(s"node $portNumber starting")
     val dht: DhtWrapper = new DhtWrapper(self, portNumber)
     val workingBehaviour: Receive = {
       case k: TKey => context.parent ! k

@@ -13,13 +13,14 @@ class HashesPublisher extends Actor with ActorPublisher[TKey] with ActorLogging 
   var buf: Vector[TKey] = Vector.empty[TKey]
 
   override def receive: Receive = {
-    case TKey(_) if buf.length == MaxBufferSize =>
-      log.warning("dropping hash due to buffer overflow")
+    case k: TKey if buf.length == MaxBufferSize =>
+      log.warning(s"dropping received hash $k due to buffer overflow")
     case key: TKey =>
+      log.debug(s"received hash $key")
       if (buf.isEmpty && totalDemand > 0)
         onNext(key)
       else {
-        buf = buf :+ key // somhow "buf += key" does not work
+        buf = buf :+ key // somehow "buf += key" does not work
         deliverBuf()
       }
     case Request(_) =>

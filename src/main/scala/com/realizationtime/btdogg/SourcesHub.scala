@@ -1,6 +1,7 @@
 package com.realizationtime.btdogg
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import com.realizationtime.btdogg.BtDoggConfiguration.HashSourcesConfig
 import com.realizationtime.btdogg.HashesSource.{Start, StartingCompleted}
 import com.realizationtime.btdogg.SourcesHub.{Init, NodeStarted, StartNode, Stop}
 
@@ -54,7 +55,7 @@ class SourcesHub extends Actor with ActorLogging {
     }
 
     private def getFreePort = {
-      val availablePorts = List.range(BtDoggConfiguration.firstPort, BtDoggConfiguration.lastPort + 1, 1)
+      val availablePorts = List.range(HashSourcesConfig.firstPort, HashSourcesConfig.lastPort + 1, 1)
       availablePorts
         .filterNot(portsToNodes.keySet.contains(_))
         .min

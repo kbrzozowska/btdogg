@@ -7,6 +7,7 @@ import akka.actor.{ActorSystem, Props}
 import akka.event.Logging
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
+import com.realizationtime.btdogg.BtDoggConfiguration.HashSourcesConfig
 import com.realizationtime.btdogg.RootActor.Boot
 
 import scala.concurrent.Await
@@ -25,7 +26,7 @@ class BtDoggMain {
   private implicit val log = Logging(system, "btdoggMain")
   private implicit val materializer = ActorMaterializer()
   log.info("Starting btdogg...")
-  rootActor ! Boot(BtDoggConfiguration.nodesCount)
+  rootActor ! Boot(HashSourcesConfig.nodesCount)
 
   var nodes: List[DhtWrapper] = List()
 

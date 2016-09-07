@@ -3,7 +3,7 @@ package com.realizationtime.btdogg
 import java.nio.file.{Files, Path, Paths}
 
 import akka.actor.ActorRef
-import com.realizationtime.btdogg.BtDoggConfiguration.storageBaseDir
+import com.realizationtime.btdogg.BtDoggConfiguration.HashSourcesConfig.{bootNodeHost, bootNodePort, storageBaseDir}
 import lbms.plugins.mldht.DHTConfiguration
 import lbms.plugins.mldht.kad.DHT.IncomingMessageListener
 import lbms.plugins.mldht.kad.messages._
@@ -37,13 +37,15 @@ class DhtWrapper(val hashesSource: ActorRef, port: Integer) {
 
     override def allowMultiHoming(): Boolean = false
 
-    override def isPersistingID: Boolean = false
+    override def isPersistingID: Boolean = true
 
     override def getStoragePath: Path = storagePath
 
     override def noRouterBootstrap(): Boolean = false
   })
-
-  dht.bootstrap()
+  if (bootNodeHost.isDefined)
+    dht.addDHTNode(bootNodeHost.get, bootNodePort.get)
+  else
+    dht.bootstrap()
 
 }

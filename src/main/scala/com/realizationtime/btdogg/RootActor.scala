@@ -1,7 +1,7 @@
 package com.realizationtime.btdogg
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import com.realizationtime.btdogg.BtDoggConfiguration.nodesCreationInterval
+import com.realizationtime.btdogg.BtDoggConfiguration.HashSourcesConfig.nodesCreationInterval
 import com.realizationtime.btdogg.RootActor.{Boot, Shutdown}
 import com.realizationtime.btdogg.SourcesHub.{Init, NodeStarted, StartNode}
 
@@ -11,6 +11,7 @@ class RootActor extends Actor with ActorLogging {
 
   private val sourcesHub: ActorRef = context.actorOf(Props[SourcesHub], "sourcesHub")
   private val hashesPublisher: ActorRef = context.actorOf(Props[HashesPublisher], "hashesPublisher")
+
   override def receive = {
     case Boot(nodesCount) =>
       context.become(booting(nodesCount), discardOld = true)
@@ -24,11 +25,12 @@ class RootActor extends Actor with ActorLogging {
       case BootNext(nodesCount) =>
         orderNewNode(nodesCount)
       case NodeStarted(portNumber) =>
-        log.info(s"Starting of node $portNumber completed")
+        log.debug(s"Starting of node $portNumber completed")
         val nodesStillNotReady = nodesNotReady - 1
-        if (nodesStillNotReady == 0)
+        if (nodesStillNotReady == 0) {
           become(normalOperation, discardOld = true)
-        else
+          log.info("All hash sources started")
+        } else
           become(booting(nodesStillNotReady), discardOld = true)
       case msg =>
         self forward msg
@@ -37,6 +39,7 @@ class RootActor extends Actor with ActorLogging {
   }
 
   import scala.concurrent.duration._
+
   def normalOperation: Receive = {
     case Shutdown() =>
       log.info("Ordering shutdown of dht nodes")
@@ -52,7 +55,7 @@ class RootActor extends Actor with ActorLogging {
   }
 
   def orderNewNode(nodesCount: Int) = {
-    log.info("Starting node")
+    log.debug("Starting node")
     sourcesHub ! StartNode()
     if (nodesCount > 1) {
       log.info(s"${nodesCount - 1} nodes left to start")
@@ -65,6 +68,9 @@ class RootActor extends Actor with ActorLogging {
 }
 
 object RootActor {
+
   final case class Boot(sourcesCount: Int)
+
   final case class Shutdown()
+
 }
