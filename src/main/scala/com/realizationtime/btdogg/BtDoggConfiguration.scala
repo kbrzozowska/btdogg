@@ -4,6 +4,8 @@ import java.nio.file.{Files, Paths}
 
 import com.typesafe.config.{Config, ConfigFactory}
 
+import scala.language.postfixOps
+
 
 object BtDoggConfiguration {
 
@@ -19,8 +21,10 @@ object BtDoggConfiguration {
       ConfigFactory.load()
     ).getConfig("btdogg")
 
+  val parallelismLevel = rootConfig.getInt("parallelismLevel")
+
   object HashSourcesConfig {
-    val config = rootConfig.getConfig("hashSources")
+    private val config = rootConfig.getConfig("hashSources")
     val storageBaseDir = config.getString("storageBaseDir")
     val nodesCount = config.getInt("nodesCount")
     val firstPort = config.getInt("firstPort")

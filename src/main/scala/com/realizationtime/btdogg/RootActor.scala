@@ -3,18 +3,20 @@ package com.realizationtime.btdogg
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import com.realizationtime.btdogg.BtDoggConfiguration.HashSourcesConfig.nodesCreationInterval
 import com.realizationtime.btdogg.RootActor.{Boot, Shutdown}
+import com.realizationtime.btdogg.hashessource.SourcesHub
 import com.realizationtime.btdogg.hashessource.SourcesHub.{Init, NodeStarted, StartNode}
-import com.realizationtime.btdogg.hashessource.{HashesPublisher, SourcesHub}
+import scala.language.postfixOps
 
 class RootActor extends Actor with ActorLogging {
 
   import context._
 
   private val sourcesHub: ActorRef = context.actorOf(Props[SourcesHub], "sourcesHub")
-  private val hashesPublisher: ActorRef = context.actorOf(Props[HashesPublisher], "hashesPublisher")
+  private var hashesPublisher: ActorRef = _
 
   override def receive = {
-    case Boot(nodesCount) =>
+    case Boot(nodesCount, publisher) =>
+      this.hashesPublisher = publisher
       context.become(booting(nodesCount), discardOld = true)
       sourcesHub ! Init(hashesPublisher)
       orderNewNode(nodesCount)
@@ -22,7 +24,7 @@ class RootActor extends Actor with ActorLogging {
 
   def booting(nodesNotReady: Int): Receive = {
     val bootingBehaviour: Receive = {
-      case Boot(_) =>
+      case Boot(_, _) =>
       case BootNext(nodesCount) =>
         orderNewNode(nodesCount)
       case NodeStarted(portNumber) =>
@@ -70,7 +72,7 @@ class RootActor extends Actor with ActorLogging {
 
 object RootActor {
 
-  final case class Boot(sourcesCount: Int)
+  final case class Boot(sourcesCount: Int, hashesPublisher: ActorRef)
 
   final case class Shutdown()
 

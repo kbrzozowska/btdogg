@@ -1,5 +1,6 @@
 package com.realizationtime.btdogg.hashessource
 
+import java.net.InetSocketAddress
 import java.nio.file.{Files, Path, Paths}
 
 import akka.actor.ActorRef
@@ -30,6 +31,7 @@ class DhtWrapper(val hashesSource: ActorRef, port: Integer) {
         sendKey(msg.getInfoHash)
       case msg: AnnounceRequest =>
         sendKey(msg.getInfoHash)
+      case _ =>
     }
   })
 
@@ -43,10 +45,16 @@ class DhtWrapper(val hashesSource: ActorRef, port: Integer) {
     override def getStoragePath: Path = storagePath
 
     override def noRouterBootstrap(): Boolean = false
+
+    override def getUnresolvedBootstrapNodes: Array[InetSocketAddress] =
+      if (bootNodeHost.isDefined)
+        Array(InetSocketAddress.createUnresolved(bootNodeHost.get, bootNodePort.get))
+      else
+        super.getUnresolvedBootstrapNodes
   })
+
   if (bootNodeHost.isDefined)
     dht.addDHTNode(bootNodeHost.get, bootNodePort.get)
-  else
-    dht.bootstrap()
+  dht.bootstrap()
 
 }
