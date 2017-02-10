@@ -4,11 +4,11 @@ resolvers += "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/
 //resolvers += Resolver.jcenterRepo
 
 libraryDependencies ++= {
+  val akkaV       = "2.4.12"
   val mldhtV      = "0.0.1-SNAPSHOT"
-  val akkaV       = "2.4.9"
-  val scalaTestV  = "2.2.6"
-  val scalaMockV  = "3.2.2"
-  val redisScalaV = "1.6.0"
+  val redisScalaV = "1.8.0"
+  val scalaTestV  = "3.0.1"
+  val scalaMockV  = "3.4.2"
   Seq(
     "com.realizationtime.mldht.core"  %   "libmldht"                    % mldhtV,
     "com.typesafe.akka"               %%  "akka-stream"                 % akkaV,
@@ -23,7 +23,7 @@ lazy val root = (project in file(".")).
     organization := "com.realizationtime",
     name := "btdogg",
     version := "0.0.1",
-    scalaVersion := "2.11.8"
+    scalaVersion := "2.12.1"
   )
 
 cancelable in Global := true
