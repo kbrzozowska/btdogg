@@ -1,10 +1,12 @@
 package com.realizationtime.btdogg
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, DeadLetter, Props}
 import com.realizationtime.btdogg.BtDoggConfiguration.HashSourcesConfig.nodesCreationInterval
 import com.realizationtime.btdogg.RootActor.{Boot, Shutdown}
 import com.realizationtime.btdogg.hashessource.SourcesHub
 import com.realizationtime.btdogg.hashessource.SourcesHub.{Init, NodeStarted, StartNode}
+import com.realizationtime.btdogg.utils.DeadLetterActor
+
 import scala.language.postfixOps
 
 class RootActor extends Actor with ActorLogging {
@@ -14,9 +16,15 @@ class RootActor extends Actor with ActorLogging {
   private val sourcesHub: ActorRef = context.actorOf(Props[SourcesHub], "sourcesHub")
   private var hashesPublisher: ActorRef = _
 
+  def registerDeadLetterActor = {
+    val deadLetterActor = system.actorOf(Props.create(classOf[DeadLetterActor]))
+    system.eventStream.subscribe(deadLetterActor, classOf[DeadLetter])
+  }
+
   override def receive = {
     case Boot(nodesCount, publisher) =>
       this.hashesPublisher = publisher
+      registerDeadLetterActor
       context.become(booting(nodesCount), discardOld = true)
       sourcesHub ! Init(hashesPublisher)
       orderNewNode(nodesCount)
