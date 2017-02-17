@@ -5,7 +5,7 @@ resolvers += "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/
 
 libraryDependencies ++= {
   val akkaV       = "2.4.12"
-  val mldhtV      = "0.0.1-SNAPSHOT"
+  val mldhtV      = "0.0.2-SNAPSHOT"
   val redisScalaV = "1.8.0"
   val scalaTestV  = "3.0.1"
   val scalaMockV  = "3.4.2"
