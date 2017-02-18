@@ -47,4 +47,11 @@ object BtDoggConfiguration {
       else
         Option.empty
   }
+
+  object RedisConfig {
+    private val config = rootConfig.getConfig("redis")
+    val allKnownDb = config.getInt("allKnownDb")
+    val currentlyProcessedDb = config.getInt("currentlyProcessedDb")
+    val testDb = config.getInt("testDb")
+  }
 }

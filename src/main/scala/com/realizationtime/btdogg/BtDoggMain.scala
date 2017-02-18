@@ -28,7 +28,7 @@ class BtDoggMain {
   private implicit val system = ActorSystem("BtDogg")
   private val rootActor = system.actorOf(Props[RootActor], "rootActor")
   //  private implicit val timeout: Timeout = Timeout(nodesCreationInterval * nodesCount * 3)
-  private implicit val log = Logging(system, "btdoggMain")
+  private implicit val log = Logging(system, classOf[BtDoggMain])
   private val decider: Supervision.Decider = { e =>
     log.error(e, "Unhandled exception in stream")
     Supervision.resume
@@ -42,31 +42,24 @@ class BtDoggMain {
     hashesBeingScrapedDB = RedisClient(db = Some(2))
   )
 
-  val window = 1000
-  @volatile
-  private var history: Queue[Long] = Queue[Long]()
+  val window = 3000
   private val startTime = System.nanoTime()
-  val ii = new AtomicLong(0L)
   private val publisher = scrapingProcess.onlyNewHashes
-    .toMat(Sink.foreach(k => {
+    .toMat(Sink.fold((0L, Queue[Long](startTime)))((u, k) => {
       val suchNow = System.nanoTime()
-      val (n, time) =
-        synchronized {
-          history = history.enqueue(suchNow)
-          if (history.length == 1)
-            (1, startTime)
-          else if (history.length < window)
-            (history.length, history.front)
-          else {
-            val (time, dequeued) = history.dequeue
-            history = dequeued
-            (dequeued.length, time)
-          }
+      val (oldI, oldHistory) = u
+      val (n, time, newHistory) =
+        if (oldHistory.length < window)
+          (oldHistory.length + 1, oldHistory.front, oldHistory.enqueue(suchNow))
+        else {
+          val (time, dequeued) = oldHistory.dequeue
+          (oldHistory.length, time, dequeued.enqueue(suchNow))
         }
-      val i = ii.incrementAndGet()
+      val i = oldI + 1
       val rate: BigDecimal = BigDecimal(n) / (BigDecimal(suchNow - time) / BigDecimal(1000000000L))
       val rateScaled = rate.setScale(3, RoundingMode.HALF_UP)
       println(s"$i. $rateScaled/s $k")
+      (i, newHistory)
     }))(Keep.left)
     .run()
 
