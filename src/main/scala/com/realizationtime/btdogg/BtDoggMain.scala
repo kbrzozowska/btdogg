@@ -1,15 +1,13 @@
 package com.realizationtime.btdogg
 
 
-import java.util.concurrent.atomic.AtomicLong
-
 import akka.actor.{ActorSystem, Props}
 import akka.event.Logging
 import akka.stream.scaladsl.{Keep, Sink}
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
 import com.realizationtime.btdogg.BtDoggConfiguration.HashSourcesConfig.nodesCount
 import com.realizationtime.btdogg.RootActor.Boot
-import com.realizationtime.btdogg.scraping.ScrapingProcess
+import com.realizationtime.btdogg.filtering.FilteringProcess
 import redis.RedisClient
 
 import scala.collection.immutable.Queue
@@ -20,6 +18,8 @@ import scala.language.postfixOps
 import scala.math.BigDecimal.RoundingMode
 
 class BtDoggMain {
+
+  def shutdownNow() = scheduleShutdown(0 seconds)
 
   def scheduleShutdown(delay: FiniteDuration) = {
     system.scheduler.scheduleOnce(delay, rootActor, RootActor.Shutdown())
@@ -37,7 +37,7 @@ class BtDoggMain {
   private implicit val materializer = ActorMaterializer(materializerSettings)
   log.info("Starting btdogg...")
 
-  val scrapingProcess = new ScrapingProcess(
+  val scrapingProcess = new FilteringProcess(
     checkIfKnownDB = RedisClient(db = Some(1)),
     hashesBeingScrapedDB = RedisClient(db = Some(2))
   )
@@ -70,6 +70,6 @@ object BtDoggMain extends App {
   private val main = new BtDoggMain
   println("#### Press Enter to shut system down")
   scala.io.StdIn.readLine()
-  main.scheduleShutdown(0 minutes)
+  main.shutdownNow()
   Await.result(main.system.whenTerminated, Duration.Inf)
 }

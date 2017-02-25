@@ -1,12 +1,13 @@
-package com.realizationtime.btdogg.scraping
+package com.realizationtime.btdogg.filtering
 
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
-import com.realizationtime.btdogg.scraping.CheckIfKnown.Result
-import com.realizationtime.btdogg.scraping.CheckIfKnown.Result.Result
+import com.realizationtime.btdogg.BtDoggConfiguration.RedisConfig
+import com.realizationtime.btdogg.filtering.CheckIfKnown.Result
+import com.realizationtime.btdogg.filtering.CheckIfKnown.Result.Result
 import com.realizationtime.btdogg.{BtDoggConfiguration, TKey}
 import redis.RedisClient
 
@@ -16,7 +17,7 @@ import scala.concurrent.Future
 class CheckIfKnown(private val checkIfKnownDB: RedisClient) {
 
   val flow: Flow[TKey, TKey, NotUsed] = Flow[TKey]
-    .mapAsyncUnordered(BtDoggConfiguration.parallelismLevel)(isNew)
+    .mapAsyncUnordered(RedisConfig.parallelismLevel)(isNew)
     .filter(_._1 == Result.NEW)
     .map(_._2)
 

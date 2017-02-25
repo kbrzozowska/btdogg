@@ -14,7 +14,6 @@ class RootActor extends Actor with ActorLogging {
   import context._
 
   private val sourcesHub: ActorRef = context.actorOf(Props[SourcesHub], "sourcesHub")
-  private var hashesPublisher: ActorRef = _
 
   def registerDeadLetterActor = {
     val deadLetterActor = system.actorOf(Props.create(classOf[DeadLetterActor]))
@@ -23,10 +22,9 @@ class RootActor extends Actor with ActorLogging {
 
   override def receive = {
     case Boot(nodesCount, publisher) =>
-      this.hashesPublisher = publisher
       registerDeadLetterActor
       context.become(booting(nodesCount), discardOld = true)
-      sourcesHub ! Init(hashesPublisher)
+      sourcesHub ! Init(publisher)
       orderNewNode(nodesCount)
   }
 

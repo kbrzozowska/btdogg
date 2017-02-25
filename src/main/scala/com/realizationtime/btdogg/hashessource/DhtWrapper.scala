@@ -11,7 +11,7 @@ import lbms.plugins.mldht.kad.DHT.IncomingMessageListener
 import lbms.plugins.mldht.kad.messages._
 import lbms.plugins.mldht.kad.{DHT, Key}
 
-class DhtWrapper(val hashesSource: ActorRef, port: Integer) {
+case class DhtWrapper(hashesSource: ActorRef, port: Int) {
 
   def stop() = {
     dht.stop()
@@ -21,9 +21,9 @@ class DhtWrapper(val hashesSource: ActorRef, port: Integer) {
     hashesSource ! TKey(infoHash)
   }
 
-  val storagePath = Paths.get(storageBaseDir, port.toString)
+  private val storagePath = Paths.get(storageBaseDir, port.toString)
   Files.createDirectories(storagePath)
-  val dht = new DHT(DHT.DHTtype.IPV4_DHT)
+  private val dht = new DHT(DHT.DHTtype.IPV4_DHT)
 
   dht.addIncomingMessageListener(new IncomingMessageListener {
     override def received(dht: DHT, msg: MessageBase): Unit = msg match {

@@ -13,27 +13,28 @@ class SourcesHub extends Actor with ActorLogging {
       context.become(working(publisher, startingState), discardOld = true)
   }
 
-  def working(hashesPublisher: ActorRef, state: State):Receive = {
-    {
-      case k: TKey =>
-        hashesPublisher forward k
-      case StartNode() =>
-        context.become(working(hashesPublisher, state.startNode), discardOld = true)
-      case StartingCompleted(node) =>
-        context.become(working(hashesPublisher, state.nodeStarted(node)), discardOld = true)
-      case Stop() =>
-        (state.activeNodes ++ state.startingNodesToRequesters.keySet)
-          .foreach(_ ! HashesSource.Stop())
-    }
+  def working(hashesPublisher: ActorRef, state: State): Receive = {
+    case k: TKey =>
+      hashesPublisher forward k
+    case StartNode() =>
+      context.become(working(hashesPublisher, state.startNode), discardOld = true)
+    case StartingCompleted(node) =>
+      context.become(working(hashesPublisher, state.nodeStarted(node)), discardOld = true)
+    case Stop() =>
+      context.become(stopped)
+      (state.activeNodes ++ state.startingNodesToRequesters.keySet)
+        .foreach(_ ! HashesSource.Stop())
   }
 
+  val stopped: Receive = Actor.ignoringBehavior
+
   val startingState = new State(List(), Map(), Map())
-  class State(
-                       val activeNodes: List[ActorRef],
-                       val startingNodesToRequesters: Map[ActorRef, ActorRef],
-                       val portsToNodes: Map[Int, ActorRef]
-                     ) {
-    lazy val nodesToPorts = portsToNodes.map(_.swap)
+
+  class State(val activeNodes: List[ActorRef],
+              val startingNodesToRequesters: Map[ActorRef, ActorRef],
+              val portsToNodes: Map[Int, ActorRef]) {
+    private lazy val nodesToPorts = portsToNodes.map(_.swap)
+
     def startNode: State = {
       val portNumber = getFreePort
       val node = context.actorOf(Props[HashesSource], "HashesSource" + portNumber)
@@ -46,7 +47,7 @@ class SourcesHub extends Actor with ActorLogging {
       newState
     }
 
-    def nodeStarted(node:ActorRef): State = {
+    def nodeStarted(node: ActorRef): State = {
       startingNodesToRequesters(node) ! NodeStarted(nodesToPorts(node))
       new State(
         node :: activeNodes,
@@ -56,12 +57,13 @@ class SourcesHub extends Actor with ActorLogging {
     }
 
     private def getFreePort = {
-      val availablePorts = List.range(HashSourcesConfig.firstPort, HashSourcesConfig.lastPort + 1, 1)
+      val availablePorts = HashSourcesConfig.firstPort to HashSourcesConfig.lastPort
       availablePorts
         .filterNot(portsToNodes.keySet.contains(_))
         .min
     }
   }
+
 }
 
 object SourcesHub {

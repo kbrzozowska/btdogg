@@ -21,7 +21,10 @@ object BtDoggConfiguration {
       ConfigFactory.load()
     ).getConfig("btdogg")
 
-  val parallelismLevel = rootConfig.getInt("parallelismLevel")
+  private implicit def asFiniteDuration(d: java.time.Duration): FiniteDuration =
+    scala.concurrent.duration.Duration.fromNanos(d.toNanos)
+
+  val standardBufferSize = rootConfig.getInt("standardBufferSize")
 
   object HashSourcesConfig {
     private val config = rootConfig.getConfig("hashSources")
@@ -34,7 +37,7 @@ object BtDoggConfiguration {
         s"Not enough ports for nodes specified: there are nedded $nodesCount ports, " +
           s"but first port specified is $firstPort and the last one: $lastPort"
       )
-    val nodesCreationInterval = config.getInt("nodesCreationIntervalMillis") millis
+    val nodesCreationInterval: FiniteDuration = config.getDuration("nodesCreationInterval")
 
     val bootNodeHost: Option[String] =
       if (config.hasPath("bootNodeHost"))
@@ -48,10 +51,18 @@ object BtDoggConfiguration {
         Option.empty
   }
 
+  object ScrapingConfig {
+    private val config = rootConfig.getConfig("scraping")
+    val simultaneousTorrentsPerNode: Int = config.getInt("simultaneousTorrentsPerNode")
+    val torrentFetchTimeout: FiniteDuration = config.getDuration("torrentFetchTimeout")
+    val torrentsTmpDir = Paths.get(config.getString("torrentsTmpDir"))
+  }
+
   object RedisConfig {
     private val config = rootConfig.getConfig("redis")
     val allKnownDb = config.getInt("allKnownDb")
     val currentlyProcessedDb = config.getInt("currentlyProcessedDb")
     val testDb = config.getInt("testDb")
+    val parallelismLevel = config.getInt("parallelismLevel")
   }
 }
