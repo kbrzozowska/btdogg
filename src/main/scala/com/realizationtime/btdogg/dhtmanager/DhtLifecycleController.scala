@@ -9,6 +9,7 @@ import com.realizationtime.btdogg.TKey
 import com.realizationtime.btdogg.dhtmanager.DhtLifecycleController.StopNode
 import com.realizationtime.btdogg.dhtmanager.DhtsManager.NodeReady
 import com.realizationtime.btdogg.hashessource.HashesSource
+import com.realizationtime.btdogg.scraping.TorrentScraper
 import lbms.plugins.mldht.DHTConfiguration
 import lbms.plugins.mldht.kad.DHT
 
@@ -47,6 +48,7 @@ case class DhtLifecycleController(port: Int, idPrefix: Int) extends Actor with A
       dht.addDHTNode(bootNodeHost.get, bootNodePort.get)
     dht.bootstrap()
     hashesSourceWrapper = context.system.actorOf(Props(classOf[HashesSource], dht), s"HashesSource$port")
+    scraperWrapper = context.system.actorOf(Props(classOf[TorrentScraper], dht), s"TorrentScraper$port")
     val key = TKey(dht.getOurID)
     context.parent ! NodeReady(key, self, hashesSourceWrapper, scraperWrapper)
   }

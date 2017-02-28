@@ -1,12 +1,16 @@
 package com.realizationtime.btdogg.dhtmanager
 
+import java.nio.file.Files
+
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import com.realizationtime.btdogg.BtDoggConfiguration.HashSourcesConfig
+import com.realizationtime.btdogg.BtDoggConfiguration.ScrapingConfig.torrentsTmpDir
 import com.realizationtime.btdogg.TKey
 import com.realizationtime.btdogg.dhtmanager.DhtsManager.{Boot, BootComplete, BootingPhase, NodeReady}
 
 class DhtsManager extends Actor with ActorLogging {
   private var dhts = Set[NodeReady]()
+  Files.createDirectories(torrentsTmpDir)
 
   override def receive: Receive = {
     case Boot =>
