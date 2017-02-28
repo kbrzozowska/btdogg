@@ -2,34 +2,34 @@ package com.realizationtime.btdogg.hashessource
 
 import akka.actor.{Actor, ActorRef}
 import com.realizationtime.btdogg.TKey
-import com.realizationtime.btdogg.hashessource.HashesSource.{Start, StartingCompleted, Stop}
+import com.realizationtime.btdogg.hashessource.HashesSource.Subscribe
+import lbms.plugins.mldht.kad.messages.{AnnounceRequest, GetPeersRequest, MessageBase}
+import lbms.plugins.mldht.kad.{DHT, Key}
 
-class HashesSource extends Actor with akka.actor.ActorLogging {
+class HashesSource(val dht: DHT) extends Actor with akka.actor.ActorLogging {
 
-  override def receive: Receive = {
-    case Start(portNumber) =>
-      context.become(working(portNumber))
+  private var subscribers = Set[ActorRef]()
+
+  dht.addIncomingMessageListener((_: DHT, msg: MessageBase) => msg match {
+    case msg: GetPeersRequest =>
+      sendKey(msg.getInfoHash)
+    case msg: AnnounceRequest =>
+      sendKey(msg.getInfoHash)
+    case _ =>
+  })
+
+  private def sendKey(infoHash: Key): Unit = {
+    subscribers.foreach(_ ! TKey(infoHash))
   }
 
-  def working(portNumber: Int): Receive = {
-    log.debug(s"node $portNumber starting")
-    val dht: DhtWrapper = new DhtWrapper(self, portNumber)
-    val workingBehaviour: Receive = {
-      case k: TKey =>
-        log.debug(s"node $portNumber: sending key: ${k.hash}")
-        context.parent ! k
-      case Stop() =>
-        dht.stop()
-        context.stop(self)
-    }
-    sender ! StartingCompleted(self)
-    workingBehaviour
+  override def receive: Receive = {
+    case Subscribe(s) => subscribers += s
   }
 
 }
 
 object HashesSource {
-  final case class Start(portNumber: Int)
-  final case class StartingCompleted(node: ActorRef)
-  final case class Stop()
+
+  final case class Subscribe(subscriber: ActorRef)
+
 }

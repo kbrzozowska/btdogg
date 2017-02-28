@@ -11,6 +11,8 @@ case class TKey(hash: String) {
     s"hash should be haxadecimal, with size 40. You passed: $hash"
   })
 
+  lazy val mldhtKey: Key = new Key(hash)
+  lazy val prefix: String = hash.take(2)
 }
 
 object TKey {

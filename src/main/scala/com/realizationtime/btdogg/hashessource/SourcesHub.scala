@@ -1,74 +1,27 @@
 package com.realizationtime.btdogg.hashessource
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import com.realizationtime.btdogg.BtDoggConfiguration.HashSourcesConfig
+import akka.actor.{Actor, ActorLogging, ActorRef}
 import com.realizationtime.btdogg.TKey
-import com.realizationtime.btdogg.hashessource.HashesSource.{Start, StartingCompleted}
-import com.realizationtime.btdogg.hashessource.SourcesHub.{Init, NodeStarted, StartNode, Stop}
+import com.realizationtime.btdogg.hashessource.HashesSource.Subscribe
+import com.realizationtime.btdogg.hashessource.SourcesHub._
 
 class SourcesHub extends Actor with ActorLogging {
 
+  private var subscribers = Set[ActorRef]()
+
   override def receive: Receive = {
-    case Init(publisher) =>
-      context.become(working(publisher, startingState), discardOld = true)
-  }
-
-  def working(hashesPublisher: ActorRef, state: State): Receive = {
+    case AddWorkers(hashSources) => hashSources.foreach(_ ! Subscribe(self))
+    case SubscribePublisher(s) => subscribers += s
     case k: TKey =>
-      hashesPublisher forward k
-    case StartNode() =>
-      context.become(working(hashesPublisher, state.startNode), discardOld = true)
-    case StartingCompleted(node) =>
-      context.become(working(hashesPublisher, state.nodeStarted(node)), discardOld = true)
-    case Stop() =>
-      context.become(stopped)
-      (state.activeNodes ++ state.startingNodesToRequesters.keySet)
-        .foreach(_ ! HashesSource.Stop())
-  }
-
-  val stopped: Receive = Actor.ignoringBehavior
-
-  val startingState = new State(List(), Map(), Map())
-
-  class State(val activeNodes: List[ActorRef],
-              val startingNodesToRequesters: Map[ActorRef, ActorRef],
-              val portsToNodes: Map[Int, ActorRef]) {
-    private lazy val nodesToPorts = portsToNodes.map(_.swap)
-
-    def startNode: State = {
-      val portNumber = getFreePort
-      val node = context.actorOf(Props[HashesSource], "HashesSource" + portNumber)
-      val newState = new State(
-        activeNodes,
-        startingNodesToRequesters + (node -> sender),
-        portsToNodes + (portNumber -> node)
-      )
-      node ! Start(portNumber)
-      newState
-    }
-
-    def nodeStarted(node: ActorRef): State = {
-      startingNodesToRequesters(node) ! NodeStarted(nodesToPorts(node))
-      new State(
-        node :: activeNodes,
-        startingNodesToRequesters - node,
-        portsToNodes
-      )
-    }
-
-    private def getFreePort = {
-      val availablePorts = HashSourcesConfig.firstPort to HashSourcesConfig.lastPort
-      availablePorts
-        .filterNot(portsToNodes.keySet.contains(_))
-        .min
-    }
+      subscribers.foreach(_ forward k)
   }
 
 }
 
 object SourcesHub {
-  final case class Init(HashesPublisher: ActorRef)
-  final case class StartNode()
-  final case class NodeStarted(portNumber: Int)
-  final case class Stop()
+
+  final case class AddWorkers(hashSources: Set[ActorRef])
+
+  final case class SubscribePublisher(mainConsumer: ActorRef)
+
 }

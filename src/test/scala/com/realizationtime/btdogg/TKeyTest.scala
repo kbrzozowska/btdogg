@@ -32,6 +32,11 @@ class TKeyTest extends FlatSpec with Matchers with PropertyChecks {
     }
   }
 
+  it should "return correct mldht key" in {
+    val mldhtHash = TKey("0123456789ABCDEF0123456789ABCDEF01234567").mldhtKey.toString(false)
+    mldhtHash shouldEqual "0123456789ABCDEF0123456789ABCDEF01234567"
+  }
+
   "TKey.fromPrefix" should "produce TKey on correct input" in {
     val key: TKey = TKey.fromPrefix("A")
     key should not be null

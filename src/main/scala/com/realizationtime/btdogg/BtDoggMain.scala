@@ -5,8 +5,7 @@ import akka.actor.{ActorSystem, Props}
 import akka.event.Logging
 import akka.stream.scaladsl.{Keep, Sink}
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
-import com.realizationtime.btdogg.BtDoggConfiguration.HashSourcesConfig.nodesCount
-import com.realizationtime.btdogg.RootActor.Boot
+import com.realizationtime.btdogg.RootActor.SubscribePublisher
 import com.realizationtime.btdogg.filtering.FilteringProcess
 import redis.RedisClient
 
@@ -22,7 +21,7 @@ class BtDoggMain {
   def shutdownNow() = scheduleShutdown(0 seconds)
 
   def scheduleShutdown(delay: FiniteDuration) = {
-    system.scheduler.scheduleOnce(delay, rootActor, RootActor.Shutdown())
+//    system.scheduler.scheduleOnce(delay, rootActor, RootActor.Shutdown())
   }
 
   private implicit val system = ActorSystem("BtDogg")
@@ -63,7 +62,7 @@ class BtDoggMain {
     }))(Keep.left)
     .run()
 
-  rootActor ! Boot(nodesCount, publisher)
+  rootActor ! SubscribePublisher(publisher)
 }
 
 object BtDoggMain extends App {
