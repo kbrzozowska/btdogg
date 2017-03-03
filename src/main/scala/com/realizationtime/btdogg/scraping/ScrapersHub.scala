@@ -7,6 +7,8 @@ import com.realizationtime.btdogg.scraping.TorrentScraper.ScrapeRequest
 
 class ScrapersHub extends Actor {
 
+  import context._
+
   private var idPrefixesToScrapers: Map[String, ActorRef] = Map[String, ActorRef]()
     .withDefault(_ => {
       idPrefixesToScrapers.head._2
@@ -33,12 +35,12 @@ class ScrapersHub extends Actor {
   def noNodesReceivedYet(waitingRequests: List[ScrapeRequest]): Receive = {
     case key: TKey =>
       val request = ScrapeRequest(key, sender())
-      context.become(noNodesReceivedYet(request :: waitingRequests), discardOld = true)
+      become(noNodesReceivedYet(request :: waitingRequests), discardOld = true)
     case m: Message => m match {
       case AddScrapers(newScrapers) =>
         idPrefixesToScrapers ++= newScrapers
         waitingRequests.foreach(self ! _)
-        context.become(working)
+        become(working)
     }
   }
 

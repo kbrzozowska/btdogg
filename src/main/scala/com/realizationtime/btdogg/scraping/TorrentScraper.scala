@@ -9,7 +9,7 @@ import java.util.Collections
 import akka.actor.{Actor, ActorRef}
 import com.realizationtime.btdogg.BtDoggConfiguration.ScrapingConfig.{torrentFetchTimeout, torrentsTmpDir}
 import com.realizationtime.btdogg.TKey
-import com.realizationtime.btdogg.scraping.TorrentScraper.{Message, ScrapeRequest, ScrapeResult}
+import com.realizationtime.btdogg.scraping.TorrentScraper.{Message, ScrapeRequest, ScrapeResult, ScraperStoppedException, Shutdown}
 import lbms.plugins.mldht.kad.DHT
 import the8472.bt.TorrentUtils
 import the8472.mldht.TorrentFetcher
@@ -20,49 +20,67 @@ import scala.util.{Failure, Success, Try}
 
 class TorrentScraper(dht: DHT) extends Actor {
 
-  import scala.concurrent.ExecutionContext.Implicits.global
+  import context._
 
   private val fetcher: TorrentFetcher = new TorrentFetcher(Collections.singleton(dht))
 
   private var currentlyProcessedToRecipients = Map[ScrapeRequest, List[ActorRef]]()
 
   override def receive: Receive = {
+    case m: Message =>
+      bothRunningAndStoppedBehaviour.orElse(PartialFunction[Any, Unit] {
+        case req: ScrapeRequest => // if ! currentlyProcessedToRecipients.contains(req)
+          currentlyProcessedToRecipients += req -> List(sender())
+          val task: TorrentFetcher#FetchTask = fetcher.fetch(req.key.mldhtKey)
+          val cs = task.awaitCompletion()
+          val future: Future[TorrentFetcher#FetchTask] = FutureConverters.toScala(cs)
+          future
+            .flatMap(fetchTask => {
+              OptionConverters.toScala(fetchTask.getResult)
+                .map(saveTorrentToFile(_, req))
+                .getOrElse(Future.successful(ScrapeResult(req, Success(None))))
+            })
+            .onComplete {
+              case Success(result) => self ! result
+              case Failure(ex) => self ! ScrapeResult(req, Failure(ex))
+            }
+          system.scheduler.scheduleOnce(torrentFetchTimeout, self, Timeout(req, task))
+      })(m)
+  }
+
+  private val bothRunningAndStoppedBehaviour: PartialFunction[Message, Unit] = {
     case req: ScrapeRequest if currentlyProcessedToRecipients.contains(req) =>
-      val previousRecipients = currentlyProcessedToRecipients(req)
-      currentlyProcessedToRecipients += req -> (sender() :: previousRecipients)
-    case req: ScrapeRequest =>
-      currentlyProcessedToRecipients += req -> List(sender())
-      val task: TorrentFetcher#FetchTask = fetcher.fetch(req.key.mldhtKey)
-      val cs = task.awaitCompletion()
-      val future: Future[TorrentFetcher#FetchTask] = FutureConverters.toScala(cs)
-      future
-        .flatMap(fetchTask => {
-          OptionConverters.toScala(fetchTask.getResult)
-            .map(saveTorrentToFile(_, req))
-            .getOrElse(Future.successful(ScrapeResult(req, Success(None))))
-        })
-        .onComplete {
-          case Success(result) => self ! result
-          case Failure(ex) => self ! ScrapeResult(req, Failure(ex))
-        }
-      context.system.scheduler.scheduleOnce(torrentFetchTimeout, self, Timeout(req, task))
-    case m: Message => m match {
-      case Timeout(req, task) if currentlyProcessedToRecipients.contains(req) =>
-        val recipients = currentlyProcessedToRecipients(req)
-        currentlyProcessedToRecipients -= req
-        recipients.foreach(_ ! ScrapeResult(req, Success(None)))
-        try {
-          task.stop()
-        } catch {
-          case _: Throwable =>
-        }
-      case ignoreAlreadyCompleted: Timeout =>
-      case res: ScrapeResult if currentlyProcessedToRecipients.contains(res.request) =>
-        val recipients = currentlyProcessedToRecipients(res.request)
-        currentlyProcessedToRecipients -= res.request
-        recipients.foreach(_ ! res)
-      case ignoreAlreadyTimedOut: ScrapeResult =>
-    }
+      addToScheduledRecipients(req)
+    case Timeout(req, task) if currentlyProcessedToRecipients.contains(req) =>
+      val recipients = currentlyProcessedToRecipients(req)
+      currentlyProcessedToRecipients -= req
+      recipients.foreach(_ ! ScrapeResult(req, Success(None)))
+      try {
+        task.stop()
+      } catch {
+        case _: Throwable =>
+      }
+    case ignoreAlreadyCompleted: Timeout =>
+    case res: ScrapeResult if currentlyProcessedToRecipients.contains(res.request) =>
+      val recipients = currentlyProcessedToRecipients(res.request)
+      currentlyProcessedToRecipients -= res.request
+      recipients.foreach(_ ! res)
+    case ignoreAlreadyTimedOut: ScrapeResult =>
+    case Shutdown =>
+      become(stopped, discardOld = true)
+  }
+
+  private def stopped: Receive = {
+    case m: Message =>
+      bothRunningAndStoppedBehaviour.orElse(PartialFunction[Any, Unit] {
+        case req: ScrapeRequest => // if ! currentlyProcessedToRecipients.contains(req)
+          sender() ! ScrapeResult(req, Failure(new ScraperStoppedException))
+      })(m)
+  }
+
+  private def addToScheduledRecipients(req: ScrapeRequest) = {
+    val previousRecipients = currentlyProcessedToRecipients(req)
+    currentlyProcessedToRecipients += req -> (sender() :: previousRecipients)
   }
 
   def saveTorrentToFile(inputBuffer: ByteBuffer, req: ScrapeRequest): Future[ScrapeResult] = {
@@ -113,5 +131,9 @@ object TorrentScraper {
   final case class ScrapeResult(request: ScrapeRequest, result: ScrapeResult#ResultValue) extends Message {
     type ResultValue = Try[Option[Path]]
   }
+
+  case object Shutdown extends Message
+
+  class ScraperStoppedException extends RuntimeException
 
 }

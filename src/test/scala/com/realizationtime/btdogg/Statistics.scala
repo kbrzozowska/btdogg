@@ -70,7 +70,6 @@ class Statistics extends FlatSpec {
 
     val zapisFuture: Future[IOResult] = Source(stats.toStream
       .sortBy(_._1.toEpochSecond)
-      //      .dropRight(2)
     ).map {
       case (time, i) =>
         val perSecond = BigDecimal(i) / BigDecimal(window.getSeconds) setScale(1, RoundingMode.HALF_UP)

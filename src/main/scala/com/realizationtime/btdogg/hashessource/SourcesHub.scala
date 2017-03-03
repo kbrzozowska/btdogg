@@ -10,8 +10,13 @@ class SourcesHub extends Actor with ActorLogging {
   private var subscribers = Set[ActorRef]()
 
   override def receive: Receive = {
-    case AddWorkers(hashSources) => hashSources.foreach(_ ! Subscribe(self))
-    case SubscribePublisher(s) => subscribers += s
+    case m: Message => m match {
+      case AddWorkers(hashSources) => hashSources.foreach(_ ! Subscribe(self))
+      case SubscribePublisher(s) => subscribers += s
+      case UnsubscribePublisher(sub, msg) =>
+        msg.foreach(sub ! _)
+        subscribers -= sub
+    }
     case k: TKey =>
       subscribers.foreach(_ forward k)
   }
@@ -20,8 +25,12 @@ class SourcesHub extends Actor with ActorLogging {
 
 object SourcesHub {
 
-  final case class AddWorkers(hashSources: Set[ActorRef])
+  sealed trait Message
 
-  final case class SubscribePublisher(mainConsumer: ActorRef)
+  final case class AddWorkers(hashSources: Set[ActorRef]) extends Message
+
+  final case class SubscribePublisher(mainConsumer: ActorRef) extends Message
+
+  final case class UnsubscribePublisher(subscriber: ActorRef, endMessage: Option[Any]) extends Message
 
 }

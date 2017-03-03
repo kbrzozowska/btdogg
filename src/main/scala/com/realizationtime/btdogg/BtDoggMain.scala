@@ -4,14 +4,14 @@ package com.realizationtime.btdogg
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 
-import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.actor.{ActorRef, ActorSystem, Props, Status}
 import akka.event.Logging
 import akka.stream.scaladsl.{Keep, Sink}
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
 import akka.util.Timeout
 import com.realizationtime.btdogg.BtDoggConfiguration.HashSourcesConfig.nodesCount
 import com.realizationtime.btdogg.BtDoggConfiguration.ScrapingConfig.{simultaneousTorrentsPerNode, torrentFetchTimeout}
-import com.realizationtime.btdogg.RootActor.{GetScrapersHub, SubscribePublisher}
+import com.realizationtime.btdogg.RootActor.{GetScrapersHub, SubscribePublisher, UnsubscribePublisher}
 import com.realizationtime.btdogg.filtering.FilteringProcess
 import com.realizationtime.btdogg.scraping.ScrapersHub.ScrapeResult
 import redis.RedisClient
@@ -29,12 +29,17 @@ class BtDoggMain {
   def shutdownNow() = scheduleShutdown(0 seconds)
 
   def scheduleShutdown(delay: FiniteDuration) = {
-    //    system.scheduler.scheduleOnce(delay, rootActor, RootActor.Shutdown())
+    log.info(s"Ordered shutdown in $delay")
+    system.scheduler.scheduleOnce(delay, () => {
+      keysProcessing match {
+        case Some(publisher) => rootActor ! UnsubscribePublisher(publisher, Some(Status.Success("shutdown")))
+        case None => system.terminate()
+      }
+    })
   }
 
   private implicit val system = ActorSystem("BtDogg")
   private val rootActor = system.actorOf(Props[RootActor], "rootActor")
-  //  private implicit val timeout: Timeout = Timeout(nodesCreationInterval * nodesCount * 3)
   private implicit val log = Logging(system, classOf[BtDoggMain])
   private val decider: Supervision.Decider = { e =>
     log.error(e, "Unhandled exception in stream")
@@ -59,10 +64,15 @@ class BtDoggMain {
 
   implicit val timeout: Timeout = Timeout(torrentFetchTimeout * 2)
 
+  var keysProcessing: Option[ActorRef] = _
+
   (rootActor ? GetScrapersHub).mapTo[ActorRef].onComplete {
     case Success(scrapingHub) =>
-      val publisher = filteringProcess.onlyNewHashes
-        .mapAsyncUnordered(simultaneousTorrentsPerNode * nodesCount)(key => (scrapingHub ? key).mapTo[ScrapeResult])
+      val (publisher, completeFuture) = filteringProcess.onlyNewHashes
+        .mapAsyncUnordered(simultaneousTorrentsPerNode * nodesCount)(key =>
+          (scrapingHub ? key).mapTo[ScrapeResult].recover {
+            case ex: Throwable => ScrapeResult(key, Failure(ex))
+          })
         .map {
           case ScrapeResult(key, Success(Some(file))) =>
             val filename = file.getFileName
@@ -86,11 +96,16 @@ class BtDoggMain {
           val rateScaled = rate.setScale(3, RoundingMode.HALF_UP)
           println(s"$i. $rateScaled/s $k")
           (i, newHistory)
-        }))(Keep.left)
+        }))(Keep.both)
         .run()
 
+      completeFuture.onComplete(_ => (rootActor ? RootActor.ShutdownDHTs).onComplete(_ => system.terminate()))
+
       rootActor ! SubscribePublisher(publisher)
-    case Failure(ex) => log.error(ex, "Error getting ScrapersHub")
+      keysProcessing = Some(publisher)
+    case Failure(ex) =>
+      log.error(ex, "Error getting ScrapersHub")
+      keysProcessing = None
   }
 
 }
