@@ -1,8 +1,8 @@
 package com.realizationtime.btdogg
 
 
-import java.nio.file.Files
 import java.nio.file.StandardCopyOption.REPLACE_EXISTING
+import java.nio.file.{Files, Path}
 
 import akka.actor.{ActorRef, ActorSystem, Props, Status}
 import akka.event.Logging
@@ -13,15 +13,17 @@ import com.realizationtime.btdogg.BtDoggConfiguration.HashSourcesConfig.nodesCou
 import com.realizationtime.btdogg.BtDoggConfiguration.ScrapingConfig.{simultaneousTorrentsPerNode, torrentFetchTimeout}
 import com.realizationtime.btdogg.RootActor.{GetScrapersHub, SubscribePublisher, UnsubscribePublisher}
 import com.realizationtime.btdogg.filtering.FilteringProcess
+import com.realizationtime.btdogg.parsing.{FileParser, ParsingResult}
 import com.realizationtime.btdogg.scraping.ScrapersHub.ScrapeResult
+import com.realizationtime.btdogg.utils.Counter
+import com.realizationtime.btdogg.utils.Counter.Tick
 import redis.RedisClient
+import sun.plugin.dom.exception.InvalidStateException
 
-import scala.collection.immutable.Queue
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.language.postfixOps
-import scala.math.BigDecimal.RoundingMode
 import scala.util.{Failure, Success}
 
 class BtDoggMain {
@@ -55,16 +57,26 @@ class BtDoggMain {
   )
 
   val window = 3000
-  private val startTime = System.nanoTime()
 
   private val doneTorrents = BtDoggConfiguration.ScrapingConfig.torrentsTmpDir.resolve("done")
+  private val faultyTorrents = BtDoggConfiguration.ScrapingConfig.torrentsTmpDir.resolve("faulty")
   Files.createDirectories(doneTorrents)
+  Files.createDirectories(faultyTorrents)
 
   import akka.pattern.ask
 
   implicit val timeout: Timeout = Timeout(torrentFetchTimeout * 2)
 
   var keysProcessing: Option[ActorRef] = _
+
+  def moveFileTo(file: Path, targetDir: Path): Path = {
+    val filename = file.getFileName
+    val newLocation = targetDir.resolve(filename)
+    Files.move(file, newLocation, REPLACE_EXISTING)
+    newLocation
+  }
+
+  def moveFileToFaulty(file: Path) = moveFileTo(file, faultyTorrents)
 
   (rootActor ? GetScrapersHub).mapTo[ActorRef].onComplete {
     case Success(scrapingHub) =>
@@ -75,28 +87,38 @@ class BtDoggMain {
           })
         .map {
           case ScrapeResult(key, Success(Some(file))) =>
-            val filename = file.getFileName
-            val newLocation = doneTorrents.resolve(filename)
-            Files.move(file, newLocation, REPLACE_EXISTING)
+            val newLocation = moveFileTo(file, doneTorrents)
             ScrapeResult(key, Success(Some(newLocation)))
           case sr: ScrapeResult => sr
         }
-        .toMat(Sink.fold((0L, Queue[Long](startTime)))((u, k) => {
-          val suchNow = System.nanoTime()
-          val (oldI, oldHistory) = u
-          val (n, time, newHistory) =
-            if (oldHistory.length < window)
-              (oldHistory.length + 1, oldHistory.front, oldHistory.enqueue(suchNow))
-            else {
-              val (time, dequeued) = oldHistory.dequeue
-              (oldHistory.length, time, dequeued.enqueue(suchNow))
-            }
-          val i = oldI + 1
-          val rate: BigDecimal = BigDecimal(n) / (BigDecimal(suchNow - time) / BigDecimal(1000000000L))
-          val rateScaled = rate.setScale(3, RoundingMode.HALF_UP)
-          println(s"$i. $rateScaled/s $k")
-          (i, newHistory)
-        }))(Keep.both)
+        .filter {
+          case ScrapeResult(_, Success(Some(_))) =>
+            true
+          case ScrapeResult(_, Success(None)) =>
+            false
+          case ScrapeResult(k, Failure(ex)) =>
+            log.error(ex, s"Error fetching torrent with hash: ${k.hash}")
+            false
+        }
+        .map {
+          case ScrapeResult(key, Success(Some(path))) =>
+            FileParser.parse(key, path)
+          case never => throw new InvalidStateException(s"this: $never should be filtered out")
+        }
+        .filter {
+          case ParsingResult(key, path, Failure(ex)) =>
+            log.error(ex, s"error parsing torrent $key in file $path")
+            moveFileToFaulty(path)
+            false
+          case success =>
+            // removeFile(success)
+            true
+        }
+        .map(Counter(window))
+        .toMat(Sink.foreach {
+          case Tick(i, rate, res) =>
+            println(s"$i. $rate/s ${res.key.hash} ${res.result.get.title.getOrElse("<NoTitle>")}")
+        })(Keep.both)
         .run()
 
       completeFuture.onComplete(_ => (rootActor ? RootActor.ShutdownDHTs).onComplete(_ => system.terminate()))
@@ -108,6 +130,14 @@ class BtDoggMain {
       keysProcessing = None
   }
 
+  private def removeFile(res: ParsingResult): ParsingResult = {
+    try {
+      Files.delete(res.path)
+    } catch {
+      case ex: Throwable => log.error(ex, s"error deleting torrent file ${res.path}")
+    }
+    res
+  }
 }
 
 object BtDoggMain extends App {
