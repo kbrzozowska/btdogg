@@ -6,17 +6,21 @@ resolvers += "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/
 libraryDependencies ++= {
   val akkaV       = "2.4.17"
   val mldhtV      = "0.0.2-SNAPSHOT"
+  val reactiveMongoV = "0.12.1"
   val redisScalaV = "1.8.0"
   val scalaTestV  = "3.0.1"
   val scalaCheckV = "1.13.4"
   val scalaMockV  = "3.4.2"
+  val slfJdkV     = "1.7.24"
   Seq(
     "com.realizationtime.mldht.core"  %   "libmldht"                    % mldhtV,
     "com.typesafe.akka"               %%  "akka-stream"                 % akkaV,
+    "org.reactivemongo"               %%  "reactivemongo"               % reactiveMongoV,
     "com.github.etaty"                %%  "rediscala"                   % redisScalaV,
     "org.scalatest"                   %%  "scalatest"                   % scalaTestV  % "test",
     "org.scalamock"                   %%  "scalamock-scalatest-support" % scalaMockV  % "test",
-    "org.scalacheck"                  %%  "scalacheck"                  % scalaCheckV % "test"
+    "org.scalacheck"                  %%  "scalacheck"                  % scalaCheckV % "test",
+    "org.slf4j"                       %   "slf4j-jdk14"                 % slfJdkV
   )
 }
 

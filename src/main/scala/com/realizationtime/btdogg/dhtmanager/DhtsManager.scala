@@ -40,6 +40,7 @@ class DhtsManager extends Actor with ActorLogging {
         case NextNode =>
           val controller = actorOf(DhtLifecycleController.create(port, idPrefix), "DhtLifecycleController" + port)
           bootingNodes += controller
+          log.info(s"starting node $port. Nodes left: ${nodesLeft - 1}")
           scheduleNextNode
         case m: NodeReady =>
           dhts += m

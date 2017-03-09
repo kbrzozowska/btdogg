@@ -10,10 +10,12 @@ import akka.stream.scaladsl.{Keep, Sink}
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
 import akka.util.Timeout
 import com.realizationtime.btdogg.BtDoggConfiguration.HashSourcesConfig.nodesCount
+import com.realizationtime.btdogg.BtDoggConfiguration.MongoConfig.parallelismLevel
 import com.realizationtime.btdogg.BtDoggConfiguration.ScrapingConfig.{simultaneousTorrentsPerNode, torrentFetchTimeout}
 import com.realizationtime.btdogg.RootActor.{GetScrapersHub, SubscribePublisher, UnsubscribePublisher}
 import com.realizationtime.btdogg.filtering.FilteringProcess
 import com.realizationtime.btdogg.parsing.{FileParser, ParsingResult}
+import com.realizationtime.btdogg.persist.MongoPersist
 import com.realizationtime.btdogg.scraping.ScrapersHub.ScrapeResult
 import com.realizationtime.btdogg.utils.Counter
 import com.realizationtime.btdogg.utils.Counter.Tick
@@ -35,9 +37,14 @@ class BtDoggMain {
     system.scheduler.scheduleOnce(delay, () => {
       keysProcessing match {
         case Some(publisher) => rootActor ! UnsubscribePublisher(publisher, Some(Status.Success("shutdown")))
-        case None => system.terminate()
+        case None => haltNow()
       }
     })
+  }
+
+  private def haltNow(): Unit = {
+    system.terminate()
+    mongoPersist.stop()
   }
 
   private implicit val system = ActorSystem("BtDogg")
@@ -78,6 +85,8 @@ class BtDoggMain {
 
   def moveFileToFaulty(file: Path) = moveFileTo(file, faultyTorrents)
 
+  private val mongoPersist = new MongoPersist(BtDoggConfiguration.MongoConfig.uri)
+
   (rootActor ? GetScrapersHub).mapTo[ActorRef].onComplete {
     case Success(scrapingHub) =>
       val (publisher, completeFuture) = filteringProcess.onlyNewHashes
@@ -105,13 +114,16 @@ class BtDoggMain {
             FileParser.parse(key, path)
           case never => throw new InvalidStateException(s"this: $never should be filtered out")
         }
+        .mapAsyncUnordered(parallelismLevel)(res => mongoPersist.save(res).recover {
+          case ex: Throwable => ParsingResult(res.key, res.path, Failure(ex))
+        })
         .filter {
           case ParsingResult(key, path, Failure(ex)) =>
-            log.error(ex, s"error parsing torrent $key in file $path")
+            log.error(ex, s"error processing torrent $key in file $path")
             moveFileToFaulty(path)
             false
           case success =>
-            // removeFile(success)
+             removeFile(success)
             true
         }
         .map(Counter(window))
@@ -121,7 +133,7 @@ class BtDoggMain {
         })(Keep.both)
         .run()
 
-      completeFuture.onComplete(_ => (rootActor ? RootActor.ShutdownDHTs).onComplete(_ => system.terminate()))
+      completeFuture.onComplete(_ => (rootActor ? RootActor.ShutdownDHTs).onComplete(_ => haltNow()))
 
       rootActor ! SubscribePublisher(publisher)
       keysProcessing = Some(publisher)

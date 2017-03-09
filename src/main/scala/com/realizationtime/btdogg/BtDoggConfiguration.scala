@@ -65,4 +65,11 @@ object BtDoggConfiguration {
     val testDb = config.getInt("testDb")
     val parallelismLevel = config.getInt("parallelismLevel")
   }
+
+  object MongoConfig {
+    private val config = rootConfig.getConfig("mongo")
+    val uri = config.getString("uri")
+    val parallelismLevel = config.getInt("parallelismLevel")
+  }
+
 }

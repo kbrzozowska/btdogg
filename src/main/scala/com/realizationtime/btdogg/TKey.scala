@@ -8,7 +8,7 @@ import scala.util.Random
 case class TKey(hash: String) {
 
   require(hash != null && hash.length == 40 && hash.matches(TKey.validHex), {
-    s"hash should be haxadecimal, with size 40. You passed: $hash"
+    s"hash should be haxadecimal, with size 40. You passed: $hash (length: ${hash.length})"
   })
 
   lazy val mldhtKey: Key = new Key(hash)
