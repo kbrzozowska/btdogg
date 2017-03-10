@@ -85,7 +85,7 @@ class BtDoggMain {
 
   def moveFileToFaulty(file: Path) = moveFileTo(file, faultyTorrents)
 
-  private val mongoPersist = new MongoPersist(BtDoggConfiguration.MongoConfig.uri)
+  private val mongoPersist = MongoPersist(BtDoggConfiguration.MongoConfig.uri)
 
   (rootActor ? GetScrapersHub).mapTo[ActorRef].onComplete {
     case Success(scrapingHub) =>

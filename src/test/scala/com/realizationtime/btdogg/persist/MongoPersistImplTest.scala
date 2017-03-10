@@ -13,11 +13,11 @@ import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, Future, Promise}
 import scala.util.{Success, Try}
 
-class MongoPersistTest extends FlatSpec with Matchers with BeforeAndAfterEach {
+class MongoPersistImplTest extends FlatSpec with Matchers with BeforeAndAfterEach {
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
-  private val mongoPersist = new MongoPersist("mongodb://localhost/test")
+  private val mongoPersist: MongoPersist = new MongoPersistImpl("mongodb://localhost/test")
   private val testKey = TKey("6DBE929E7579CADD7E66F37ACCC5B16DE6A4BFF7")
   private val testFile = Paths.get("src/test/resources/6DBE929E7579CADD7E66F37ACCC5B16DE6A4BFF7.torrent")
   private val parsingResult = FileParser.parse(testKey, testFile)

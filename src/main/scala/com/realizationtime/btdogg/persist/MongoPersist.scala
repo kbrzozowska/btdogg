@@ -4,82 +4,25 @@ import java.time.{Instant, LocalDate}
 
 import com.realizationtime.btdogg.TKey
 import com.realizationtime.btdogg.parsing.ParsingResult
-import com.realizationtime.btdogg.parsing.ParsingResult.{FileEntry, TorrentData, TorrentDir, TorrentFile}
-import com.realizationtime.btdogg.persist.MongoPersist.{Liveness, MongoWriteException, TorrentDocument, isDuplicateIdError}
-import reactivemongo.api.MongoConnection
-import reactivemongo.api.collections.bson.BSONCollection
-import reactivemongo.api.commands.{LastError, UpdateWriteResult, WriteError, WriteResult}
-import reactivemongo.bson.{BSONDateTime, BSONDocument, BSONDocumentWriter, BSONInteger, BSONString, BSONWriter, Macros}
+import com.realizationtime.btdogg.parsing.ParsingResult.{FileEntry, TorrentData}
+import reactivemongo.api.commands.{DefaultWriteResult, UpdateWriteResult, WriteResult}
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
 
-class MongoPersist(val uri: String)(implicit private val ec: ExecutionContext) {
-  private val parsedUri = MongoConnection.parseURI(uri).get
-  private val driver = new reactivemongo.api.MongoDriver
-  private val connection = driver.connection(uri).get
-  private val db = connection.database(parsedUri.db.get)
+trait MongoPersist {
 
-  private val torrents: Future[BSONCollection] = db.map(_.collection("torrents"))
+  def save(sr: ParsingResult): Future[ParsingResult]
 
-  private implicit val tkeyWriter = new BSONWriter[TKey, BSONString] {
-    override def write(k: TKey): BSONString = BSONString(k.hash)
-  }
-  private implicit val torrentDataFileWriter: BSONDocumentWriter[TorrentFile] = Macros.writer[TorrentFile]
-  private implicit val torrentDataDirWriter: BSONDocumentWriter[TorrentDir] = Macros.writer[TorrentDir]
-  private implicit val torrentDataWriter: BSONDocumentWriter[FileEntry] = Macros.writer[FileEntry]
-  private implicit val instantWriter = new BSONWriter[Instant, BSONDateTime] {
-    override def write(t: Instant): BSONDateTime = BSONDateTime(t.toEpochMilli)
-  }
-  private implicit val livenessWriter: BSONDocumentWriter[Liveness] = Macros.writer[Liveness]
-  private def localDateToString(date: LocalDate): String = date.toString
-  private implicit val localDateWriter = new BSONWriter[LocalDate, BSONString] {
-    override def write(t: LocalDate): BSONString = BSONString(localDateToString(t))
-  }
-  private implicit val mapWriter: BSONDocumentWriter[Map[LocalDate, Int]] = new BSONDocumentWriter[Map[LocalDate, Int]] {
-    def write(map: Map[LocalDate, Int]): BSONDocument = {
-      val elements = map.toStream.map { tuple =>
-        localDateToString(tuple._1) -> BSONInteger(tuple._2)
-      }
-      BSONDocument(elements)
-    }
-  }
+  def incrementLiveness(key: TKey, date: LocalDate, requests: Int, announces: Int): Future[UpdateWriteResult]
 
-  private implicit val torrentWriter: BSONDocumentWriter[TorrentDocument] = Macros.writer[TorrentDocument]
+  def delete(torrent: TKey): Future[WriteResult]
 
-  def save(sr: ParsingResult): Future[ParsingResult] = {
-    torrents.flatMap(coll => sr match {
-      case ParsingResult(_, _, Failure(_)) => Future.successful(sr)
-      case ParsingResult(key, _, Success(torrentData)) =>
-        val document = TorrentDocument.create(key, torrentData)
-        coll.insert(document).map(writeResult => writeResult.writeErrors match {
-          case head :: Nil if isDuplicateIdError(head) => sr
-          case Nil => sr
-          case otherErrors => ParsingResult(sr.key, sr.path, Failure(MongoWriteException(writeResult)))
-        })
-    }).recoverWith {
-      case lastError: LastError if isDuplicateIdError(lastError) => Future.successful(sr)
-      case ex => Future.failed(ex)
-    }
-  }
-
-  def incrementLiveness(key: TKey, date: LocalDate, requests: Int, announces: Int): Future[UpdateWriteResult] = {
-    val selector = BSONDocument("_id" -> key)
-    val dateStr = localDateToString(date)
-    val update = BSONDocument("$inc" -> BSONDocument(
-      s"liveness.requests.$dateStr" -> requests,
-      s"liveness.announces.$dateStr" -> announces
-    ))
-    torrents.flatMap(_.update(selector = selector, update = update))
-  }
-
-  def delete(torrent: TKey): Future[WriteResult] = torrents.flatMap(_.remove(BSONDocument("_id" -> torrent)))
-
-  def stop(): Unit = connection.close()
-
+  def stop(): Unit
 }
 
 object MongoPersist {
+
+  def apply(uri: String)(implicit ec: ExecutionContext): MongoPersist = new MongoPersistImpl(uri)
 
   case class TorrentDocument(_id: TKey,
                              title: Option[String],
@@ -97,10 +40,18 @@ object MongoPersist {
   case class Liveness(requests: Map[LocalDate, Int] = Map(),
                       announces: Map[LocalDate, Int] = Map())
 
-  private def isDuplicateIdError(er: WriteError) = er.code == 11000
-
-  private def isDuplicateIdError(er: LastError) = er.code.contains(11000)
-
   case class MongoWriteException(writeResult: WriteResult) extends RuntimeException(s"Error writing to MongoDB ${writeResult.writeErrors}")
+
+  private object MongoPersistNOP extends MongoPersist {
+    override def save(sr: ParsingResult): Future[ParsingResult] = Future.successful(sr)
+
+    override def incrementLiveness(key: TKey, date: LocalDate, requests: Int, announces: Int): Future[UpdateWriteResult] =
+      Future.successful(UpdateWriteResult(true, 1, 1, Nil, Nil, None, None, None))
+
+    override def delete(torrent: TKey): Future[WriteResult] =
+      Future.successful(DefaultWriteResult(true, 1, Nil, None, None, None))
+
+    override def stop(): Unit = {}
+  }
 
 }
