@@ -11,7 +11,7 @@ libraryDependencies ++= {
   val scalaTestV     = "3.0.1"
   val scalaCheckV    = "1.13.4"
   val scalaMockV     = "3.4.2"
-  val slfJdkV        = "1.7.24"
+  val logbackV       = "1.2.1"
   val scalaLoggingV  = "3.5.0"
   Seq(
     "com.realizationtime.mldht.core"  %   "libmldht"                    % mldhtV,
@@ -21,7 +21,7 @@ libraryDependencies ++= {
     "org.scalatest"                   %%  "scalatest"                   % scalaTestV  % "test",
     "org.scalamock"                   %%  "scalamock-scalatest-support" % scalaMockV  % "test",
     "org.scalacheck"                  %%  "scalacheck"                  % scalaCheckV % "test",
-    "org.slf4j"                       %   "slf4j-jdk14"                 % slfJdkV,
+    "ch.qos.logback"                  %   "logback-classic"             % logbackV,
     "com.typesafe.scala-logging"      %%  "scala-logging"               % scalaLoggingV
   )
 }

@@ -1,0 +1,42 @@
+<configuration>
+
+  <variable
+      name="logPattern"
+      value="%date{YYYY-MM-dd HH:mm:ss.SSS} %-5level %logger{20} - %msg%n" />
+
+  <variable
+      name="mldhtlogname"
+      value="/tmp/mldht/mldht"/>
+
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>${logPattern}</pattern>
+    </encoder>
+  </appender>
+
+  <appender name="MLDHTFILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${mldhtlogname}.log</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <fileNamePattern>${mldhtlogname}-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+      <maxHistory>7</maxHistory>
+      <timeBasedFileNamingAndTriggeringPolicy
+          class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+        <maxFileSize>10MB</maxFileSize>
+      </timeBasedFileNamingAndTriggeringPolicy>
+    </rollingPolicy>
+    <encoder>
+      <pattern>${logPattern}</pattern>
+    </encoder>
+  </appender>
+
+  <logger name="com.realizationtime.btdogg.dhtmanager.BtDoggDHTLoggerFatal" level="ERROR" additivity="false">
+    <appender-ref ref="STDOUT"/>
+  </logger>
+  <logger name="com.realizationtime.btdogg.dhtmanager.BtDoggDHTLogger" level="INFO" additivity="false">
+    <appender-ref ref="MLDHTFILE"/>
+  </logger>
+
+  <root level="INFO">
+    <appender-ref ref="STDOUT"/>
+  </root>
+</configuration>

@@ -16,6 +16,8 @@ class DhtsManager extends Actor with ActorLogging {
   private var dhts = Set[NodeReady]()
   Files.createDirectories(torrentsTmpDir)
 
+  override def preStart(): Unit = BtDoggDHTLogger.attach()
+
   override def receive: Receive = {
     case Boot =>
       val port = HashSourcesConfig.firstPort
