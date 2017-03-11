@@ -14,6 +14,7 @@ import akka.stream.scaladsl.{FileIO, Sink, Source}
 import akka.stream.{ActorMaterializer, IOResult}
 import akka.util.ByteString
 import com.realizationtime.btdogg.Statistics.TemporalUnitFromDuration
+import com.realizationtime.btdogg.utils.RedisUtils
 import org.scalatest.{FlatSpec, Ignore}
 import redis.{Cursor, RedisClient}
 
@@ -32,24 +33,12 @@ class Statistics extends FlatSpec {
 
   val redisClient = RedisClient(db = Some(BtDoggConfiguration.RedisConfig.currentlyProcessedDb))
 
-  implicit val deserializer = redis.ByteStringDeserializer.String
 
   "statistics" should "be generated" in {
     val startTime = Instant.now()
-    val startIndex: Option[Int] = None
-    val porcje: Source[Seq[String], NotUsed] = Source.unfoldAsync(startIndex)((cur: Option[Int]) => {
-      if (cur.contains(0))
-        Future.successful(None)
-      else redisClient.scan(cursor = cur.getOrElse(0))
-        .map((cur: Cursor[Seq[String]]) => {
-          val kurczaki: (Option[Int], Seq[String]) = (Some(cur.index), cur.data)
-          Some(kurczaki)
-        })
-    })
-    val flattened = porcje.mapConcat(el => el.toList)
-      .mapAsyncUnordered(10)(redisClient.get(_))
-      .filter(_.isDefined)
-      .map(_.get)
+    val times = RedisUtils.streamAll(redisClient)
+      .filter(_.key.length == TKey.VALID_HASH_LENGTH)
+      .map(_.value)
       .map(Instant.parse)
       .map(roundInstant)
       .zipWithIndex
@@ -59,7 +48,7 @@ class Statistics extends FlatSpec {
             println(s"tera: $index")
           time
       }
-    val statsF: Future[Map[ZonedDateTime, Long]] = flattened.runWith(Sink.fold(Map[ZonedDateTime, Long]().withDefaultValue(0L)) { (map, time) =>
+    val statsF: Future[Map[ZonedDateTime, Long]] = times.runWith(Sink.fold(Map[ZonedDateTime, Long]().withDefaultValue(0L)) { (map, time) =>
       val i = map(time) + 1L
       map + (time -> i)
     })

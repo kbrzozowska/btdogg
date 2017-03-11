@@ -1,5 +1,6 @@
 package com.realizationtime.btdogg
 
+import com.realizationtime.btdogg.TKey.VALID_HASH_LENGTH
 import lbms.plugins.mldht.kad.Key
 
 import scala.language.postfixOps
@@ -7,7 +8,7 @@ import scala.util.Random
 
 case class TKey(hash: String) {
 
-  require(hash != null && hash.length == 40 && hash.matches(TKey.validHex), {
+  require(hash != null && hash.length == VALID_HASH_LENGTH && hash.matches(TKey.validHex), {
     s"hash should be haxadecimal, with size 40. You passed: $hash" +
       (if (hash != null) s"(length: ${hash.length})" else "")
   })
@@ -18,8 +19,8 @@ case class TKey(hash: String) {
 
 object TKey {
 
-  private val hashLength = Key.SHA1_HASH_LENGTH * 2
-  private val validHex = """^[0-9A-F]{hashLength}$""".replace("hashLength", hashLength.toString)
+  val VALID_HASH_LENGTH: Int = Key.SHA1_HASH_LENGTH * 2
+  private val validHex = """^[0-9A-F]{hashLength}$""".replace("hashLength", VALID_HASH_LENGTH.toString)
 
   def apply(key: Key): TKey = {
     val uglyPrint = false
@@ -34,7 +35,7 @@ object TKey {
       Random.nextInt(nibbles.length)
     })
       .map(nibbles(_))
-      .take(hashLength - hashPrefix.length)
+      .take(VALID_HASH_LENGTH - hashPrefix.length)
     TKey(hashPrefix + postfix.mkString)
   }
 

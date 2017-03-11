@@ -1,13 +1,12 @@
-package com.realizationtime.btdogg.hashessource
+package com.realizationtime.btdogg.scraping
 
 import akka.NotUsed
 import akka.actor.ActorRef
 import akka.stream.scaladsl.Flow
 import akka.util.Timeout
 import com.realizationtime.btdogg.BtDoggConfiguration.HashSourcesConfig.nodesCount
-import com.realizationtime.btdogg.BtDoggConfiguration.ScrapingConfig
 import com.realizationtime.btdogg.BtDoggConfiguration.ScrapingConfig.{simultaneousTorrentsPerNode, torrentFetchTimeout}
-import com.realizationtime.btdogg.{BtDoggConfiguration, TKey}
+import com.realizationtime.btdogg.TKey
 import com.realizationtime.btdogg.parsing.{FileParser, ParsingResult}
 import com.realizationtime.btdogg.scraping.ScrapersHub.ScrapeResult
 import com.realizationtime.btdogg.utils.FileUtils

@@ -4,6 +4,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Flow
 import com.realizationtime.btdogg.BtDoggConfiguration.RedisConfig
 import com.realizationtime.btdogg.TKey
+import com.realizationtime.btdogg.filtering.EntryFilter.{ANNOUNCED_POSTFIX, REQUEST_POSTFIX}
 import com.realizationtime.btdogg.filtering.FilteringProcess.Result
 import com.realizationtime.btdogg.filtering.FilteringProcess.Result.Result
 import com.realizationtime.btdogg.hashessource.HashesSource.{Announced, Requested, SpottedHash}
@@ -24,26 +25,34 @@ class EntryFilter(private val entryFilterDB: RedisClient)(implicit private val e
 
   private def isInFilter(spotted: SpottedHash): Future[(Result, TKey)] = {
     val key = spotted.key
-    val res = entryFilterDB
+    entryFilterDB
       .getset(key.hash, 1)
       .map {
         case Some(_) => (Result.ALREADY_EXISTED, key)
         case None => (Result.NEW, key)
       }
-    incrementSpottedCounter(spotted)
-    res
+      .flatMap(resultPair => {
+        incrementSpottedCounter(spotted)
+          .map(_ => resultPair)
+      })
   }
 
-  private def incrementSpottedCounter(spotted: SpottedHash): Unit = {
+  private def incrementSpottedCounter(spotted: SpottedHash): Future[SpottedHash] = {
     val incrKey = spotted match {
-      case Requested(key) => s"${key.hash}:R"
-      case Announced(key) => s"${key.hash}:A"
+      case Requested(key) => s"${key.hash}$REQUEST_POSTFIX"
+      case Announced(key) => s"${key.hash}$ANNOUNCED_POSTFIX"
     }
     entryFilterDB.incr(incrKey)
-      .onComplete {
-        case Failure(ex) => log.error(s"Error incrementing redis counter for $incrKey", ex)
-        case _ =>
-      }
+      .recover {
+        case ex: Throwable => log.error(s"Error incrementing redis counter for $incrKey", ex)
+      }.map(_ => spotted)
   }
+
+}
+
+object EntryFilter {
+
+  val REQUEST_POSTFIX = ":R"
+  val ANNOUNCED_POSTFIX = ":A"
 
 }

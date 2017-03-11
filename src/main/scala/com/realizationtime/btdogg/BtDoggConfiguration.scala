@@ -21,10 +21,9 @@ object BtDoggConfiguration {
       ConfigFactory.load()
     ).getConfig("btdogg")
 
-  private implicit def asFiniteDuration(d: java.time.Duration): FiniteDuration =
-    scala.concurrent.duration.Duration.fromNanos(d.toNanos)
+  import com.realizationtime.btdogg.utils.TimeUtils.asFiniteDuration
 
-  val standardBufferSize = rootConfig.getInt("standardBufferSize")
+  val standardBufferSize: Int = rootConfig.getInt("standardBufferSize")
 
   object HashSourcesConfig {
     private val config = rootConfig.getConfig("hashSources")

@@ -10,10 +10,11 @@ import com.realizationtime.btdogg.BtDoggConfiguration.MongoConfig.parallelismLev
 import com.realizationtime.btdogg.BtDoggConfiguration.RedisConfig
 import com.realizationtime.btdogg.BtDoggConfiguration.ScrapingConfig.torrentFetchTimeout
 import com.realizationtime.btdogg.RootActor.{GetScrapersHub, SubscribePublisher, UnsubscribePublisher}
-import com.realizationtime.btdogg.filtering.FilteringProcess
-import com.realizationtime.btdogg.hashessource.ScrapingProcess
+import com.realizationtime.btdogg.filtering.CountersFlusher.Stop
+import com.realizationtime.btdogg.filtering.{CountersFlusher, FilteringProcess}
 import com.realizationtime.btdogg.parsing.ParsingResult
 import com.realizationtime.btdogg.persist.MongoPersist
+import com.realizationtime.btdogg.scraping.ScrapingProcess
 import com.realizationtime.btdogg.utils.Counter
 import com.realizationtime.btdogg.utils.Counter.Tick
 import com.realizationtime.btdogg.utils.FileUtils.{moveFileToFaulty, removeFile}
@@ -59,10 +60,12 @@ class BtDoggMain {
   log.info("Starting btdogg...")
 
   private val mongoPersist = MongoPersist(BtDoggConfiguration.MongoConfig.uri)
+  private val entryFilterDB = RedisClient(db = Some(RedisConfig.entryFilterDb))
   private val hashesCurrentlyBeingScrapedDb = RedisClient(db = Some(RedisConfig.currentlyProcessedDb))
+  Await.ready(hashesCurrentlyBeingScrapedDb.flushdb(), 1 minute)
 
   val filteringProcess = new FilteringProcess(
-    entryFilterDB = RedisClient(db = Some(RedisConfig.entryFilterDb)),
+    entryFilterDB = entryFilterDB,
     hashesBeingScrapedDB = hashesCurrentlyBeingScrapedDb,
     mongoPersist = mongoPersist
   )
@@ -108,7 +111,14 @@ class BtDoggMain {
         })(Keep.both)
         .run()
 
-      completeFuture.onComplete(_ => (rootActor ? RootActor.ShutdownDHTs).onComplete(_ => haltNow()))
+      val countersFlusher = system.actorOf(Props(classOf[CountersFlusher], entryFilterDB, mongoPersist, global, materializer), "CountersFlusher")
+
+      completeFuture.onComplete(_ => (rootActor ? RootActor.ShutdownDHTs)
+        .onComplete(_ => {
+          implicit val timeout = Timeout(1 hour)
+          countersFlusher ? Stop
+        }
+          .onComplete(_ => haltNow())))
 
       rootActor ! SubscribePublisher(publisher)
       keysProcessing.success(publisher)

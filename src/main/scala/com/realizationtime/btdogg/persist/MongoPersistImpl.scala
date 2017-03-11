@@ -85,6 +85,21 @@ class MongoPersistImpl(val uri: String)(implicit private val ec: ExecutionContex
     torrents.flatMap(_.update(selector = selector, update = update))
   }
 
+  override def incrementLivenessRequests(key: TKey, date: LocalDate, count: Int): Future[UpdateWriteResult] =
+    incrementLiveness(key, "requests", date, count)
+
+  private def incrementLiveness(key: TKey, field: String, date: LocalDate, count: Int): Future[UpdateWriteResult] = {
+    val selector = BSONDocument("_id" -> key)
+    val dateStr = localDateToString(date)
+    val update = BSONDocument("$inc" -> BSONDocument(
+      s"liveness.$field.$dateStr" -> count
+    ))
+    torrents.flatMap(_.update(selector = selector, update = update))
+  }
+
+  override def incrementLivenessAnnounces(key: TKey, date: LocalDate, count: Int): Future[UpdateWriteResult] =
+    incrementLiveness(key, "announces", date, count)
+
   override def delete(torrent: TKey): Future[WriteResult] = torrents.flatMap(_.remove(BSONDocument("_id" -> torrent)))
 
   override def stop(): Unit = {
