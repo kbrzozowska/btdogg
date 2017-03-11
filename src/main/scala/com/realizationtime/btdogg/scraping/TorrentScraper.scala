@@ -2,11 +2,11 @@ package com.realizationtime.btdogg.scraping
 
 import java.nio.ByteBuffer
 import java.nio.channels.{AsynchronousFileChannel, CompletionHandler}
-import java.nio.file.Path
+import java.nio.file.{Files, Path}
 import java.nio.file.StandardOpenOption.{CREATE, TRUNCATE_EXISTING, WRITE}
 import java.util.Collections
 
-import akka.actor.{Actor, ActorRef}
+import akka.actor.{Actor, ActorLogging, ActorRef}
 import com.realizationtime.btdogg.BtDoggConfiguration.ScrapingConfig.{torrentFetchTimeout, torrentsTmpDir}
 import com.realizationtime.btdogg.TKey
 import com.realizationtime.btdogg.scraping.TorrentScraper.{Message, ScrapeRequest, ScrapeResult, ScraperStoppedException, Shutdown}
@@ -18,7 +18,7 @@ import scala.compat.java8.{FutureConverters, OptionConverters}
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
 
-class TorrentScraper(dht: DHT) extends Actor {
+class TorrentScraper(dht: DHT) extends Actor with ActorLogging {
 
   import context._
 
@@ -65,7 +65,14 @@ class TorrentScraper(dht: DHT) extends Actor {
       val recipients = currentlyProcessedToRecipients(res.request)
       currentlyProcessedToRecipients -= res.request
       recipients.foreach(_ ! res)
-    case ignoreAlreadyTimedOut: ScrapeResult =>
+    case timedOut: ScrapeResult =>
+      timedOut.result.foreach(_.foreach(path => {
+        try {
+          Files.delete(path)
+        } catch {
+          case ex: Throwable => log.error(ex, s"Error deleting timed out file for key ${timedOut.request.key}")
+        }
+      }))
     case Shutdown =>
       become(stopped, discardOld = true)
   }

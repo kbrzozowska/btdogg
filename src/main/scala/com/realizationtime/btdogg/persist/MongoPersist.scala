@@ -13,6 +13,8 @@ trait MongoPersist {
 
   def save(sr: ParsingResult): Future[ParsingResult]
 
+  def exists(key: TKey): Future[Boolean]
+
   def incrementLiveness(key: TKey, date: LocalDate, requests: Int, announces: Int): Future[UpdateWriteResult]
 
   def delete(torrent: TKey): Future[WriteResult]
@@ -52,6 +54,8 @@ object MongoPersist {
       Future.successful(DefaultWriteResult(true, 1, Nil, None, None, None))
 
     override def stop(): Unit = {}
+
+    override def exists(key: TKey): Future[Boolean] = Future.successful(false)
   }
 
 }

@@ -1,8 +1,7 @@
 package com.realizationtime.btdogg.hashessource
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
-import com.realizationtime.btdogg.TKey
-import com.realizationtime.btdogg.hashessource.HashesSource.Subscribe
+import com.realizationtime.btdogg.hashessource.HashesSource.{SpottedHash, Subscribe}
 import com.realizationtime.btdogg.hashessource.SourcesHub._
 
 class SourcesHub extends Actor with ActorLogging {
@@ -17,7 +16,7 @@ class SourcesHub extends Actor with ActorLogging {
         msg.foreach(sub ! _)
         subscribers -= sub
     }
-    case k: TKey =>
+    case k: SpottedHash =>
       subscribers.foreach(_ forward k)
   }
 

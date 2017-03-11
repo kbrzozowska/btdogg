@@ -1,43 +1,43 @@
 package com.realizationtime.btdogg
 
 
-import java.nio.file.StandardCopyOption.REPLACE_EXISTING
-import java.nio.file.{Files, Path}
-
 import akka.actor.{ActorRef, ActorSystem, Props, Status}
 import akka.event.Logging
 import akka.stream.scaladsl.{Keep, Sink}
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
 import akka.util.Timeout
-import com.realizationtime.btdogg.BtDoggConfiguration.HashSourcesConfig.nodesCount
 import com.realizationtime.btdogg.BtDoggConfiguration.MongoConfig.parallelismLevel
-import com.realizationtime.btdogg.BtDoggConfiguration.ScrapingConfig.{simultaneousTorrentsPerNode, torrentFetchTimeout}
+import com.realizationtime.btdogg.BtDoggConfiguration.RedisConfig
+import com.realizationtime.btdogg.BtDoggConfiguration.ScrapingConfig.torrentFetchTimeout
 import com.realizationtime.btdogg.RootActor.{GetScrapersHub, SubscribePublisher, UnsubscribePublisher}
 import com.realizationtime.btdogg.filtering.FilteringProcess
-import com.realizationtime.btdogg.parsing.{FileParser, ParsingResult}
+import com.realizationtime.btdogg.hashessource.ScrapingProcess
+import com.realizationtime.btdogg.parsing.ParsingResult
 import com.realizationtime.btdogg.persist.MongoPersist
-import com.realizationtime.btdogg.scraping.ScrapersHub.ScrapeResult
 import com.realizationtime.btdogg.utils.Counter
 import com.realizationtime.btdogg.utils.Counter.Tick
+import com.realizationtime.btdogg.utils.FileUtils.{moveFileToFaulty, removeFile}
 import redis.RedisClient
-import sun.plugin.dom.exception.InvalidStateException
 
-import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Promise}
 import scala.language.postfixOps
 import scala.util.{Failure, Success}
 
 class BtDoggMain {
 
-  def shutdownNow() = scheduleShutdown(0 seconds)
+  def shutdownNow(): Unit = scheduleShutdown(0 seconds)
 
-  def scheduleShutdown(delay: FiniteDuration) = {
+  def scheduleShutdown(delay: FiniteDuration): Unit = {
     log.info(s"Ordered shutdown in $delay")
     system.scheduler.scheduleOnce(delay, () => {
-      keysProcessing match {
-        case Some(publisher) => rootActor ! UnsubscribePublisher(publisher, Some(Status.Success("shutdown")))
-        case None => haltNow()
+      keysProcessing.future.value match {
+        case Some(Success(publisher)) => rootActor ! UnsubscribePublisher(publisher, Some(Status.Success("shutdown")))
+        case Some(Failure(_)) => haltNow()
+        case None =>
+          haltNow()
+          keysProcessing.future.foreach(publisher => rootActor ! UnsubscribePublisher(publisher, Some(Status.Success("shutdown"))))
       }
     })
   }
@@ -58,75 +58,50 @@ class BtDoggMain {
   private implicit val materializer = ActorMaterializer(materializerSettings)
   log.info("Starting btdogg...")
 
+  private val mongoPersist = MongoPersist(BtDoggConfiguration.MongoConfig.uri)
+  private val hashesCurrentlyBeingScrapedDb = RedisClient(db = Some(RedisConfig.currentlyProcessedDb))
+
   val filteringProcess = new FilteringProcess(
-    checkIfKnownDB = RedisClient(db = Some(1)),
-    hashesBeingScrapedDB = RedisClient(db = Some(2))
+    entryFilterDB = RedisClient(db = Some(RedisConfig.entryFilterDb)),
+    hashesBeingScrapedDB = hashesCurrentlyBeingScrapedDb,
+    mongoPersist = mongoPersist
   )
-
-  val window = 3000
-
-  private val doneTorrents = BtDoggConfiguration.ScrapingConfig.torrentsTmpDir.resolve("done")
-  private val faultyTorrents = BtDoggConfiguration.ScrapingConfig.torrentsTmpDir.resolve("faulty")
-  Files.createDirectories(doneTorrents)
-  Files.createDirectories(faultyTorrents)
 
   import akka.pattern.ask
 
-  implicit val timeout: Timeout = Timeout(torrentFetchTimeout * 2)
+  private implicit val timeout: Timeout = Timeout(torrentFetchTimeout * 2)
 
-  var keysProcessing: Option[ActorRef] = _
-
-  def moveFileTo(file: Path, targetDir: Path): Path = {
-    val filename = file.getFileName
-    val newLocation = targetDir.resolve(filename)
-    Files.move(file, newLocation, REPLACE_EXISTING)
-    newLocation
-  }
-
-  def moveFileToFaulty(file: Path) = moveFileTo(file, faultyTorrents)
-
-  private val mongoPersist = MongoPersist(BtDoggConfiguration.MongoConfig.uri)
+  private val keysProcessing: Promise[ActorRef] = Promise()
 
   (rootActor ? GetScrapersHub).mapTo[ActorRef].onComplete {
     case Success(scrapingHub) =>
+      val scrapingProcess = new ScrapingProcess(scrapingHub)
       val (publisher, completeFuture) = filteringProcess.onlyNewHashes
-        .mapAsyncUnordered(simultaneousTorrentsPerNode * nodesCount)(key =>
-          (scrapingHub ? key).mapTo[ScrapeResult].recover {
-            case ex: Throwable => ScrapeResult(key, Failure(ex))
-          })
-        .map {
-          case ScrapeResult(key, Success(Some(file))) =>
-            val newLocation = moveFileTo(file, doneTorrents)
-            ScrapeResult(key, Success(Some(newLocation)))
-          case sr: ScrapeResult => sr
-        }
-        .filter {
-          case ScrapeResult(_, Success(Some(_))) =>
-            true
-          case ScrapeResult(_, Success(None)) =>
-            false
-          case ScrapeResult(k, Failure(ex)) =>
-            log.error(ex, s"Error fetching torrent with hash: ${k.hash}")
-            false
-        }
-        .map {
-          case ScrapeResult(key, Success(Some(path))) =>
-            FileParser.parse(key, path)
-          case never => throw new InvalidStateException(s"this: $never should be filtered out")
-        }
+        .via(scrapingProcess.flow)
         .mapAsyncUnordered(parallelismLevel)(res => mongoPersist.save(res).recover {
           case ex: Throwable => ParsingResult(res.key, res.path, Failure(ex))
         })
-        .filter {
-          case ParsingResult(key, path, Failure(ex)) =>
-            log.error(ex, s"error processing torrent $key in file $path")
-            moveFileToFaulty(path)
-            false
-          case success =>
-             removeFile(success)
-            true
-        }
-        .map(Counter(window))
+        .map(res => {
+          res match {
+            case ParsingResult(key, path, Failure(ex)) =>
+              log.error(ex, s"error processing torrent $key in file $path")
+              moveFileToFaulty(path)
+            case success =>
+              removeFile(success)
+          }
+          res
+        })
+        .mapAsyncUnordered(RedisConfig.parallelismLevel)(res => {
+          hashesCurrentlyBeingScrapedDb.del(res.key.hash)
+            .map(_ => res)
+            .recover {
+              case ex: Throwable =>
+                log.error(ex, s"Error deleting ${res.key} from currently processed hashes DB")
+                res
+            }
+        })
+        .filter(_.result.isSuccess)
+        .map(Counter(window = 3000))
         .toMat(Sink.foreach {
           case Tick(i, rate, res) =>
             println(s"$i. $rate/s ${res.key.hash} ${res.result.get.title.getOrElse("<NoTitle>")}")
@@ -136,20 +111,12 @@ class BtDoggMain {
       completeFuture.onComplete(_ => (rootActor ? RootActor.ShutdownDHTs).onComplete(_ => haltNow()))
 
       rootActor ! SubscribePublisher(publisher)
-      keysProcessing = Some(publisher)
+      keysProcessing.success(publisher)
     case Failure(ex) =>
       log.error(ex, "Error getting ScrapersHub")
-      keysProcessing = None
+      keysProcessing.failure(ex)
   }
 
-  private def removeFile(res: ParsingResult): ParsingResult = {
-    try {
-      Files.delete(res.path)
-    } catch {
-      case ex: Throwable => log.error(ex, s"error deleting torrent file ${res.path}")
-    }
-    res
-  }
 }
 
 object BtDoggMain extends App {

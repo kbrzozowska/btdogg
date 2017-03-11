@@ -33,7 +33,9 @@ class MongoPersistImpl(val uri: String)(implicit private val ec: ExecutionContex
     override def write(t: Instant): BSONDateTime = BSONDateTime(t.toEpochMilli)
   }
   private implicit val livenessWriter: BSONDocumentWriter[Liveness] = Macros.writer[Liveness]
+
   private def localDateToString(date: LocalDate): String = date.toString
+
   private implicit val localDateWriter = new BSONWriter[LocalDate, BSONString] {
     override def write(t: LocalDate): BSONString = BSONString(localDateToString(t))
   }
@@ -62,6 +64,15 @@ class MongoPersistImpl(val uri: String)(implicit private val ec: ExecutionContex
       case lastError: LastError if isDuplicateIdError(lastError) => Future.successful(sr)
       case ex => Future.failed(ex)
     }
+  }
+
+  override def exists(key: TKey): Future[Boolean] = {
+    val selector = BSONDocument("_id" -> key.hash)
+    val projection = BSONDocument("_id" -> 1)
+    torrents.flatMap(_.find(selector = selector, projection = projection).cursor().headOption.map{
+      case Some(_) => true
+      case None => false
+    })
   }
 
   override def incrementLiveness(key: TKey, date: LocalDate, requests: Int, announces: Int): Future[UpdateWriteResult] = {

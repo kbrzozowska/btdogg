@@ -57,9 +57,11 @@ case class DhtLifecycleController(port: Int, idPrefix: Int) extends Actor with A
 
   override def receive: Receive = {
     case StopNode =>
+      log.info(s"Stopping node ${key.hash}, port: $port")
       scraperWrapper ! TorrentScraper.Shutdown
       try {
         dht.stop()
+        log.info(s"Node ${key.hash}, port: $port stopped")
       } catch {
         case ex: Throwable => log.error(ex, s"Error stopping down DHT $key")
       }

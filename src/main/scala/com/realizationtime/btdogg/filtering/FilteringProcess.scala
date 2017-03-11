@@ -5,13 +5,29 @@ import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.Source
 import com.realizationtime.btdogg.BtDoggConfiguration.standardBufferSize
 import com.realizationtime.btdogg.TKey
+import com.realizationtime.btdogg.hashessource.HashesSource.SpottedHash
+import com.realizationtime.btdogg.persist.MongoPersist
 import redis.RedisClient
 
-class FilteringProcess(val checkIfKnownDB: RedisClient,
-                       val hashesBeingScrapedDB: RedisClient) {
+import scala.concurrent.ExecutionContext
 
-  val onlyNewHashes: Source[TKey, ActorRef] = Source.actorRef(bufferSize = standardBufferSize, OverflowStrategy.dropNew)
-    .via(new CheckIfKnown(checkIfKnownDB).flow)
+class FilteringProcess(val entryFilterDB: RedisClient,
+                       val hashesBeingScrapedDB: RedisClient,
+                       val mongoPersist: MongoPersist)
+                      (implicit private val ec: ExecutionContext) {
+
+  val onlyNewHashes: Source[TKey, ActorRef] = Source.actorRef[SpottedHash](bufferSize = standardBufferSize, OverflowStrategy.dropNew)
+    .via(new EntryFilter(entryFilterDB).flow)
     .via(new HashesBeingScraped(hashesBeingScrapedDB).flow)
+    .via(new MongoFilter(mongoPersist).flow)
+
+}
+
+object FilteringProcess {
+
+  object Result extends Enumeration {
+    type Result = Value
+    val NEW, ALREADY_EXISTED = Value
+  }
 
 }

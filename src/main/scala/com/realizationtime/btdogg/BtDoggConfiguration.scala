@@ -1,6 +1,6 @@
 package com.realizationtime.btdogg
 
-import java.nio.file.{Files, Paths}
+import java.nio.file.{Files, Path, Paths}
 
 import com.typesafe.config.{Config, ConfigFactory}
 
@@ -28,13 +28,13 @@ object BtDoggConfiguration {
 
   object HashSourcesConfig {
     private val config = rootConfig.getConfig("hashSources")
-    val storageBaseDir = config.getString("storageBaseDir")
-    val nodesCount = config.getInt("nodesCount")
-    val firstPort = config.getInt("firstPort")
-    val lastPort = config.getInt("lastPort")
+    val storageBaseDir: String = config.getString("storageBaseDir")
+    val nodesCount: Int = config.getInt("nodesCount")
+    val firstPort: Int = config.getInt("firstPort")
+    val lastPort: Int = config.getInt("lastPort")
     if (lastPort - firstPort < nodesCount - 1)
       throw new IllegalStateException(
-        s"Not enough ports for nodes specified: there are nedded $nodesCount ports, " +
+        s"Not enough ports for nodes specified: there are needed $nodesCount ports, " +
           s"but first port specified is $firstPort and the last one: $lastPort"
       )
     val nodesCreationInterval: FiniteDuration = config.getDuration("nodesCreationInterval")
@@ -55,21 +55,21 @@ object BtDoggConfiguration {
     private val config = rootConfig.getConfig("scraping")
     val simultaneousTorrentsPerNode: Int = config.getInt("simultaneousTorrentsPerNode")
     val torrentFetchTimeout: FiniteDuration = config.getDuration("torrentFetchTimeout")
-    val torrentsTmpDir = Paths.get(config.getString("torrentsTmpDir"))
+    val torrentsTmpDir: Path = Paths.get(config.getString("torrentsTmpDir"))
   }
 
   object RedisConfig {
     private val config = rootConfig.getConfig("redis")
-    val allKnownDb = config.getInt("allKnownDb")
-    val currentlyProcessedDb = config.getInt("currentlyProcessedDb")
-    val testDb = config.getInt("testDb")
-    val parallelismLevel = config.getInt("parallelismLevel")
+    val entryFilterDb: Int = config.getInt("entryFilterDb")
+    val currentlyProcessedDb: Int = config.getInt("currentlyProcessedDb")
+    val testDb: Int = config.getInt("testDb")
+    val parallelismLevel: Int = config.getInt("parallelismLevel")
   }
 
   object MongoConfig {
     private val config = rootConfig.getConfig("mongo")
-    val uri = config.getString("uri")
-    val parallelismLevel = config.getInt("parallelismLevel")
+    val uri: String = config.getString("uri")
+    val parallelismLevel: Int = config.getInt("parallelismLevel")
   }
 
 }
