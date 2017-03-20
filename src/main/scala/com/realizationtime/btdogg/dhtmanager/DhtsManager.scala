@@ -7,7 +7,7 @@ import com.realizationtime.btdogg.BtDoggConfiguration.HashSourcesConfig
 import com.realizationtime.btdogg.BtDoggConfiguration.ScrapingConfig.torrentsTmpDir
 import com.realizationtime.btdogg.TKey
 import com.realizationtime.btdogg.dhtmanager.DhtLifecycleController.{NodeStopped, StopNode}
-import com.realizationtime.btdogg.dhtmanager.DhtsManager.{Boot, BootComplete, BootingPhase, NodeReady, Shutdown, ShutdownCompleted}
+import com.realizationtime.btdogg.dhtmanager.DhtsManager.{Boot, BootingPhase, NodeReady, Shutdown, ShutdownCompleted}
 
 class DhtsManager extends Actor with ActorLogging {
 
@@ -47,10 +47,10 @@ class DhtsManager extends Actor with ActorLogging {
         case m: NodeReady =>
           dhts += m
           bootingNodes -= m.lifecycleController
+          caller ! m
           if (bootingNodes.isEmpty && nodesLeft < 1) {
             log.info("All DHTs started")
             become(running, discardOld = true)
-            caller ! BootComplete(dhts)
           }
         case Shutdown =>
           become(shuttingDown(dhts.map(_.lifecycleController) ++ bootingNodes, List(sender())))
@@ -97,8 +97,6 @@ class DhtsManager extends Actor with ActorLogging {
 object DhtsManager {
 
   case object Boot
-
-  final case class BootComplete(nodes: Set[NodeReady])
 
   sealed abstract trait BootingPhase
 

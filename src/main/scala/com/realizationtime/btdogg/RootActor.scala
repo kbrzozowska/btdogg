@@ -3,7 +3,7 @@ package com.realizationtime.btdogg
 import akka.actor.{Actor, ActorLogging, ActorRef, DeadLetter, Props}
 import com.realizationtime.btdogg.RootActor._
 import com.realizationtime.btdogg.dhtmanager.DhtsManager
-import com.realizationtime.btdogg.dhtmanager.DhtsManager.Shutdown
+import com.realizationtime.btdogg.dhtmanager.DhtsManager.{NodeReady, Shutdown}
 import com.realizationtime.btdogg.hashessource.SourcesHub
 import com.realizationtime.btdogg.hashessource.SourcesHub.AddWorkers
 import com.realizationtime.btdogg.scraping.ScrapersHub
@@ -31,12 +31,9 @@ class RootActor extends Actor with ActorLogging {
   }
 
   override def receive: Receive = {
-    case DhtsManager.BootComplete(nodes) =>
-      sourcesHub ! AddWorkers(nodes.map(_.hashesSource))
-      val prefixesToScrapers: Map[String, ActorRef] = nodes.map(node => {
-        node.key.prefix -> node.scraping
-      }).toMap
-      scrapersHub ! AddScrapers(prefixesToScrapers)
+    case node: NodeReady =>
+      sourcesHub ! AddWorkers(Set(node.hashesSource))
+      scrapersHub ! AddScrapers(Map(node.key.prefix -> node.scraping))
     case m: Message => m match {
       case SubscribePublisher(p) =>
         sourcesHub ! SourcesHub.SubscribePublisher(p)

@@ -1,6 +1,7 @@
 package com.realizationtime.btdogg.filtering
 
-import java.time.temporal.ChronoUnit
+import java.time.temporal.ChronoField.DAY_OF_WEEK
+import java.time.temporal.{ChronoField, ChronoUnit}
 import java.time.{Clock, Instant, ZoneId}
 
 import akka.actor.{Actor, ActorLogging, Cancellable}
@@ -75,7 +76,7 @@ class CountersFlusher(private val entryFilterDB: RedisClient,
   private def saveCounters(): Future[Long] = {
     log.info("Starting collecting of EntryFilter counters")
     val start = Instant.now(clock)
-    val utcDate = start.atZone(ZoneId.of("UTC")).toLocalDate
+    val startOfWeek = start.atZone(ZoneId.of("UTC")).toLocalDate.`with`(DAY_OF_WEEK, 1)
     RedisUtils.streamAll(entryFilterDB)
       .grouped(10)
       .mapAsyncUnordered(parallelismLevel)(kvs => {
@@ -87,9 +88,9 @@ class CountersFlusher(private val entryFilterDB: RedisClient,
       .mapAsyncUnordered(MongoConfig.parallelismLevel)(entry => {
         val f: Future[Any] = entry match {
           case CounterEntry.Announced(key, count) =>
-            mongoPersist.incrementLivenessAnnounces(key, utcDate, count)
+            mongoPersist.incrementLivenessAnnounces(key, startOfWeek, count)
           case CounterEntry.Requested(key, count) =>
-            mongoPersist.incrementLivenessRequests(key, utcDate, count)
+            mongoPersist.incrementLivenessRequests(key, startOfWeek, count)
           case CounterEntry.Ignored => Future.unit
         }
         f.map(_ => entry)

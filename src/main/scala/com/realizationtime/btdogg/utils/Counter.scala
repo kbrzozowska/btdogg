@@ -1,5 +1,7 @@
 package com.realizationtime.btdogg.utils
 
+import java.time.Duration
+
 import scala.collection.immutable.Queue
 import scala.math.BigDecimal.RoundingMode
 
@@ -22,6 +24,43 @@ object Counter {
       val rateScaled = rate.setScale(3, RoundingMode.HALF_UP)
       previousI = i
       oldHistory = newHistory
+      Tick(i, rateScaled, t)
+    }
+  }
+
+  def apply[T](window: Duration): (T) => Tick[T] = nanosecondsWindow(window.toNanos)
+
+  def apply[T](window: scala.concurrent.duration.Duration): (T) => Tick[T] = nanosecondsWindow(window.toNanos)
+
+  def nanosecondsWindow[T](nanoWindow: Long): (T) => Tick[T] = {
+    val startTime = System.nanoTime()
+    var ticksQueue = Queue[Long]()
+    var previousI = 0L
+
+    def timeNanos(): Long = {
+      val now = System.nanoTime()
+      val candidate = {
+        val sinceStart = now - startTime
+        if (ticksQueue.isEmpty)
+          sinceStart
+        else
+          List(nanoWindow, sinceStart).min
+      }
+      if (candidate == 0L)
+        1000000000L
+      else
+        candidate
+    }
+
+    (t: T) => {
+      val suchNow = System.nanoTime()
+      val windowBorder = suchNow - nanoWindow
+      ticksQueue = ticksQueue.enqueue(suchNow)
+        .dropWhile(_ < windowBorder)
+      val i = previousI + 1
+      val rate: BigDecimal = BigDecimal(ticksQueue.length) / (BigDecimal(timeNanos()) / BigDecimal(1000000000L))
+      val rateScaled = rate.setScale(3, RoundingMode.HALF_UP)
+      previousI = i
       Tick(i, rateScaled, t)
     }
   }

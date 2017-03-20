@@ -11,7 +11,6 @@ import com.realizationtime.btdogg.parsing.{FileParser, ParsingResult}
 import com.realizationtime.btdogg.scraping.ScrapersHub.ScrapeResult
 import com.realizationtime.btdogg.utils.FileUtils
 import com.typesafe.scalalogging.Logger
-import sun.plugin.dom.exception.InvalidStateException
 
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
@@ -45,7 +44,7 @@ class ScrapingProcess(scrapingHub: ActorRef)(private implicit val ec: ExecutionC
     .map {
       case ScrapeResult(key, Success(Some(path))) =>
         FileParser.parse(key, path)
-      case never => throw new InvalidStateException(s"this: $never should be filtered out in previous step")
+      case never => throw new IllegalStateException(s"this: $never should be filtered out in previous step")
     }
 
 }

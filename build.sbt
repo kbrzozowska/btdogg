@@ -34,5 +34,7 @@ lazy val root = (project in file(".")).
     scalaVersion := "2.12.1"
   )
 
+mainClass in Compile := Some("com.realizationtime.btdogg.BtDoggMain")
+
 cancelable in Global := true
 fork in run := true
