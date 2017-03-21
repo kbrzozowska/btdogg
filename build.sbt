@@ -17,6 +17,7 @@ libraryDependencies ++= {
     "com.realizationtime.mldht.core"  %   "libmldht"                    % mldhtV,
     "com.typesafe.akka"               %%  "akka-stream"                 % akkaV,
     "org.reactivemongo"               %%  "reactivemongo"               % reactiveMongoV,
+    "org.reactivemongo"               %%  "reactivemongo-akkastream"    % reactiveMongoV,
     "com.github.etaty"                %%  "rediscala"                   % redisScalaV,
     "org.scalatest"                   %%  "scalatest"                   % scalaTestV  % "test",
     "org.scalamock"                   %%  "scalamock-scalatest-support" % scalaMockV  % "test",

@@ -2,12 +2,13 @@ package com.realizationtime.btdogg.persist
 
 import java.time.{Instant, LocalDate}
 
+import com.realizationtime.btdogg.BtDoggConfiguration.MongoConfig
 import com.realizationtime.btdogg.TKey
 import com.realizationtime.btdogg.parsing.ParsingResult
 import com.realizationtime.btdogg.parsing.ParsingResult.{FileEntry, TorrentDir, TorrentFile}
 import com.realizationtime.btdogg.persist.MongoPersist.{Liveness, MongoWriteException, TorrentDocument}
-import com.realizationtime.btdogg.persist.MongoPersistImpl.isDuplicateIdError
-import reactivemongo.api.MongoConnection
+import com.realizationtime.btdogg.persist.MongoPersistImpl.{connect, isDuplicateIdError, localDateToString}
+import reactivemongo.api.{MongoConnection, MongoDriver}
 import reactivemongo.api.collections.bson.BSONCollection
 import reactivemongo.api.commands.{LastError, UpdateWriteResult, WriteError, WriteResult}
 import reactivemongo.bson.{BSONDateTime, BSONDocument, BSONDocumentWriter, BSONInteger, BSONString, BSONWriter, Macros}
@@ -16,12 +17,9 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 class MongoPersistImpl(val uri: String)(implicit private val ec: ExecutionContext) extends MongoPersist {
-  private val parsedUri = MongoConnection.parseURI(uri).get
-  private val driver = new reactivemongo.api.MongoDriver
-  private val connection = driver.connection(uri).get
-  private val db = connection.database(parsedUri.db.get)
 
-  private val torrents: Future[BSONCollection] = db.map(_.collection("torrents"))
+  private val connection = connect(uri)
+  private val torrents = connection.collection
 
   private implicit val tkeyWriter = new BSONWriter[TKey, BSONString] {
     override def write(k: TKey): BSONString = BSONString(k.hash)
@@ -32,21 +30,7 @@ class MongoPersistImpl(val uri: String)(implicit private val ec: ExecutionContex
   private implicit val instantWriter = new BSONWriter[Instant, BSONDateTime] {
     override def write(t: Instant): BSONDateTime = BSONDateTime(t.toEpochMilli)
   }
-  private implicit val livenessWriter: BSONDocumentWriter[Liveness] = Macros.writer[Liveness]
-
-  private def localDateToString(date: LocalDate): String = date.toString
-
-  private implicit val localDateWriter = new BSONWriter[LocalDate, BSONString] {
-    override def write(t: LocalDate): BSONString = BSONString(localDateToString(t))
-  }
-  private implicit val mapWriter: BSONDocumentWriter[Map[LocalDate, Int]] = new BSONDocumentWriter[Map[LocalDate, Int]] {
-    def write(map: Map[LocalDate, Int]): BSONDocument = {
-      val elements = map.toStream.map { tuple =>
-        localDateToString(tuple._1) -> BSONInteger(tuple._2)
-      }
-      BSONDocument(elements)
-    }
-  }
+  import MongoPersistImpl.livenessWriter
 
   private implicit val torrentWriter: BSONDocumentWriter[TorrentDocument] = Macros.writer[TorrentDocument]
 
@@ -103,8 +87,7 @@ class MongoPersistImpl(val uri: String)(implicit private val ec: ExecutionContex
   override def delete(torrent: TKey): Future[WriteResult] = torrents.flatMap(_.remove(BSONDocument("_id" -> torrent)))
 
   override def stop(): Unit = {
-    connection.close()
-    driver.close()
+    connection.stop()
   }
 
 }
@@ -114,5 +97,40 @@ object MongoPersistImpl {
   private def isDuplicateIdError(er: WriteError) = er.code == 11000
 
   private def isDuplicateIdError(er: LastError) = er.code.contains(11000)
+
+  def connect()(implicit ec: ExecutionContext): ConnectionWrapper = connect(MongoConfig.uri)
+
+  def connect(uri: String)(implicit ec: ExecutionContext): ConnectionWrapper = {
+    val parsedUri = MongoConnection.parseURI(uri).get
+    val driver: MongoDriver = new reactivemongo.api.MongoDriver
+    val connection: MongoConnection = driver.connection(uri).get
+    val db = connection.database(parsedUri.db.get)
+    val torrents: Future[BSONCollection] = db.map(_.collection("torrents"))
+    ConnectionWrapper(driver, connection, torrents)
+  }
+
+  final case class ConnectionWrapper(driver: MongoDriver, connection: MongoConnection, collection: Future[BSONCollection]) {
+    def stop(): Unit = {
+      connection.close()
+      driver.close()
+    }
+  }
+
+  implicit val livenessWriter: BSONDocumentWriter[Liveness] = Macros.writer[Liveness]
+
+  def localDateToString(date: LocalDate): String = date.toString
+
+  implicit val localDateWriter = new BSONWriter[LocalDate, BSONString] {
+    override def write(t: LocalDate): BSONString = BSONString(localDateToString(t))
+  }
+
+  implicit val mapWriter: BSONDocumentWriter[Map[LocalDate, Int]] = new BSONDocumentWriter[Map[LocalDate, Int]] {
+    def write(map: Map[LocalDate, Int]): BSONDocument = {
+      val elements = map.toStream.map { tuple =>
+        localDateToString(tuple._1) -> BSONInteger(tuple._2)
+      }
+      BSONDocument(elements)
+    }
+  }
 
 }

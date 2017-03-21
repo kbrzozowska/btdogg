@@ -2,7 +2,7 @@ package com.realizationtime.btdogg.filtering
 
 import java.time.temporal.ChronoField.DAY_OF_WEEK
 import java.time.temporal.{ChronoField, ChronoUnit}
-import java.time.{Clock, Instant, ZoneId}
+import java.time.{Clock, Instant, LocalDate, ZoneId}
 
 import akka.actor.{Actor, ActorLogging, Cancellable}
 import akka.stream.Materializer
@@ -76,7 +76,8 @@ class CountersFlusher(private val entryFilterDB: RedisClient,
   private def saveCounters(): Future[Long] = {
     log.info("Starting collecting of EntryFilter counters")
     val start = Instant.now(clock)
-    val startOfWeek = start.atZone(ZoneId.of("UTC")).toLocalDate.`with`(DAY_OF_WEEK, 1)
+    val utcDate = start.atZone(ZoneId.of("UTC")).toLocalDate
+    val startOfWeek = CountersFlusher.startOfWeek(utcDate)
     RedisUtils.streamAll(entryFilterDB)
       .grouped(10)
       .mapAsyncUnordered(parallelismLevel)(kvs => {
@@ -135,6 +136,10 @@ object CountersFlusher {
 
     case object Ignored extends CounterEntry
 
+  }
+
+  def startOfWeek(date: LocalDate): LocalDate = {
+    date.`with`(DAY_OF_WEEK, 1)
   }
 
 }
