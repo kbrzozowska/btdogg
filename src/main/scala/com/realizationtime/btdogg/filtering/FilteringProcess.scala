@@ -19,7 +19,7 @@ class FilteringProcess(val entryFilterDB: RedisClient,
   val onlyNewHashes: Source[TKey, ActorRef] = Source.actorRef[SpottedHash](bufferSize = standardBufferSize, OverflowStrategy.dropNew)
     .via(new EntryFilter(entryFilterDB).flow)
     .via(new HashesBeingScraped(hashesBeingScrapedDB).flow)
-    .via(new MongoFilter(mongoPersist).flow)
+    .via(new MongoFilter(mongoPersist, hashesBeingScrapedDB).flow)
 
 }
 

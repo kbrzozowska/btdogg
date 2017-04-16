@@ -78,7 +78,7 @@ class BtDoggMain {
 
   (rootActor ? GetScrapersHub).mapTo[ActorRef].onComplete {
     case Success(scrapingHub) =>
-      val scrapingProcess = new ScrapingProcess(scrapingHub)
+      val scrapingProcess = new ScrapingProcess(scrapingHub, hashesCurrentlyBeingScrapedDb)
       val (publisher, completeFuture) = filteringProcess.onlyNewHashes
         .via(scrapingProcess.flow)
         .mapAsyncUnordered(parallelismLevel)(res => mongoPersist.save(res).recover {
