@@ -7,10 +7,12 @@ libraryDependencies ++= {
   val akkaV          = "2.4.17"
   val mldhtV         = "0.0.2-SNAPSHOT"
   val reactiveMongoV = "0.12.1"
+  val elastic4sV     = "5.2.11"
   val redisScalaV    = "1.8.0"
   val scalaTestV     = "3.0.1"
   val scalaCheckV    = "1.13.4"
-  val scalaMockV     = "3.4.2"
+  val mockitoV       = "2.7.22"
+//  val scalaMockV     = "3.5.0"
   val logbackV       = "1.2.1"
   val scalaLoggingV  = "3.5.0"
   Seq(
@@ -18,13 +20,22 @@ libraryDependencies ++= {
     "com.typesafe.akka"               %%  "akka-stream"                 % akkaV,
     "org.reactivemongo"               %%  "reactivemongo"               % reactiveMongoV,
     "org.reactivemongo"               %%  "reactivemongo-akkastream"    % reactiveMongoV,
+    "com.sksamuel.elastic4s"          %%  "elastic4s-tcp"               % elastic4sV,
     "com.github.etaty"                %%  "rediscala"                   % redisScalaV,
     "org.scalatest"                   %%  "scalatest"                   % scalaTestV  % "test",
-    "org.scalamock"                   %%  "scalamock-scalatest-support" % scalaMockV  % "test",
+    "org.mockito"                     %   "mockito-core"                % mockitoV % "test",
+//    "org.scalamock"                   %%  "scalamock-scalatest-support" % scalaMockV  % "test",
     "org.scalacheck"                  %%  "scalacheck"                  % scalaCheckV % "test",
     "ch.qos.logback"                  %   "logback-classic"             % logbackV,
     "com.typesafe.scala-logging"      %%  "scala-logging"               % scalaLoggingV
   )
+}
+
+assemblyMergeStrategy in assembly := {
+  case x if x.endsWith("io.netty.versions.properties") => MergeStrategy.first
+  case x =>
+    val oldStrategy = (assemblyMergeStrategy in assembly).value
+    oldStrategy(x)
 }
 
 lazy val root = (project in file(".")).
