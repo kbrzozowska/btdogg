@@ -1,17 +1,21 @@
 package com.realizationtime.btdogg.scraping
 
-import akka.actor.{Actor, ActorRef}
+import akka.actor.{Actor, ActorLogging, ActorRef}
 import com.realizationtime.btdogg.TKey
 import com.realizationtime.btdogg.scraping.ScrapersHub.{AddScrapers, Message, ScrapeResult}
 import com.realizationtime.btdogg.scraping.TorrentScraper.ScrapeRequest
 
-class ScrapersHub extends Actor {
+import scala.util.Random
+
+class ScrapersHub extends Actor with ActorLogging {
 
   import context._
 
   private var idPrefixesToScrapers: Map[String, ActorRef] = Map[String, ActorRef]()
-    .withDefault(_ => {
-      idPrefixesToScrapers.head._2
+    .withDefault(keyPrefix => {
+      val ret = idPrefixesToScrapers.toStream(Random.nextInt(idPrefixesToScrapers.size))
+      log.debug(s"Found random scraper with prefix ${ret._1} for key $keyPrefix...")
+      ret._2
     })
 
   private var requestsCounter = Map[ScrapeRequest, Int]()
