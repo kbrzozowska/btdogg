@@ -52,7 +52,7 @@ case class DhtLifecycleController(port: Int, idPrefix: Int) extends Actor with A
     hashesSourceWrapper = system.actorOf(Props(classOf[HashesSource], dht), s"HashesSource$port")
     scraperWrapper = system.actorOf(Props(classOf[TorrentScraper], dht), s"TorrentScraper$port")
     val key = TKey(dht.getOurID)
-    parent ! NodeReady(key, self, hashesSourceWrapper, scraperWrapper)
+    parent ! NodeReady(key, port, self, hashesSourceWrapper, scraperWrapper)
   }
 
   override def receive: Receive = {

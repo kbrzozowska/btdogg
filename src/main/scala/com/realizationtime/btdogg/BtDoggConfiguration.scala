@@ -29,6 +29,7 @@ object BtDoggConfiguration {
     private val config = rootConfig.getConfig("hashSources")
     val storageBaseDir: String = config.getString("storageBaseDir")
     val nodesCount: Int = config.getInt("nodesCount")
+    val prefixStep: Int = config.getInt("prefixStep")
     val firstPort: Int = config.getInt("firstPort")
     val lastPort: Int = config.getInt("lastPort")
     if (lastPort - firstPort < nodesCount - 1)

@@ -4,6 +4,7 @@ import java.nio.file.Files
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import com.realizationtime.btdogg.BtDoggConfiguration.HashSourcesConfig
+import com.realizationtime.btdogg.BtDoggConfiguration.HashSourcesConfig.prefixStep
 import com.realizationtime.btdogg.BtDoggConfiguration.ScrapingConfig.torrentsTmpDir
 import com.realizationtime.btdogg.TKey
 import com.realizationtime.btdogg.dhtmanager.DhtLifecycleController.{NodeStopped, StopNode}
@@ -29,7 +30,7 @@ class DhtsManager extends Actor with ActorLogging {
 
   private def booting(port: Int, nodesLeft: Int, idPrefix: Int, caller: ActorRef): Receive = {
     def scheduleNextNode = {
-      become(booting(port + 1, nodesLeft - 1, (idPrefix + 1) % 256, caller), discardOld = true)
+      become(booting(port + 1, nodesLeft - 1, (idPrefix + prefixStep) % 256, caller), discardOld = true)
       system.scheduler.scheduleOnce(HashSourcesConfig.nodesCreationInterval, self, NextNode)
     }
 
@@ -42,10 +43,11 @@ class DhtsManager extends Actor with ActorLogging {
         case NextNode =>
           val controller = actorOf(DhtLifecycleController.create(port, idPrefix), "DhtLifecycleController" + port)
           bootingNodes += controller
-          log.info(s"starting node $port. Nodes left: ${nodesLeft - 1}")
+          log.info(s"starting node $port with prefix: $idPrefix. Nodes left: ${nodesLeft - 1}")
           scheduleNextNode
         case m: NodeReady =>
           dhts += m
+          log.info(s"started node ${m.key} on port ${m.port}")
           bootingNodes -= m.lifecycleController
           caller ! m
           if (bootingNodes.isEmpty && nodesLeft < 1) {
@@ -100,7 +102,7 @@ object DhtsManager {
 
   sealed abstract trait BootingPhase
 
-  final case class NodeReady(key: TKey, lifecycleController: ActorRef, hashesSource: ActorRef, scraping: ActorRef) extends BootingPhase
+  final case class NodeReady(key: TKey, port: Int, lifecycleController: ActorRef, hashesSource: ActorRef, scraping: ActorRef) extends BootingPhase
 
   sealed trait RunningPhase
 
