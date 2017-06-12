@@ -9,7 +9,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.realizationtime.btdogg.BtDoggConfiguration.MongoConfig
 import com.realizationtime.btdogg.BtDoggConfiguration.RedisConfig.parallelismLevel
-import com.realizationtime.btdogg.TKey
+import com.realizationtime.btdogg.{BtDoggConfiguration, TKey}
 import com.realizationtime.btdogg.filtering.CountersFlusher._
 import com.realizationtime.btdogg.filtering.EntryFilter.{ANNOUNCED_POSTFIX, REQUEST_POSTFIX}
 import com.realizationtime.btdogg.persist.MongoPersist
@@ -76,7 +76,7 @@ class CountersFlusher(private val entryFilterDB: RedisClient,
   private def saveCounters(): Future[Long] = {
     log.info("Starting collecting of EntryFilter counters")
     val start = Instant.now(clock)
-    val utcDate = start.atZone(ZoneId.of("UTC")).toLocalDate
+    val utcDate = start.atZone(BtDoggConfiguration.timeZone).toLocalDate
     val startOfWeek = CountersFlusher.startOfWeek(utcDate)
     RedisUtils.streamAll(entryFilterDB)
       .grouped(10)

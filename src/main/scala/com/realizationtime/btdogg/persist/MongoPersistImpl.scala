@@ -6,7 +6,7 @@ import com.realizationtime.btdogg.BtDoggConfiguration.MongoConfig
 import com.realizationtime.btdogg.TKey
 import com.realizationtime.btdogg.parsing.ParsingResult
 import com.realizationtime.btdogg.parsing.ParsingResult.{FileEntry, TorrentDir, TorrentFile}
-import com.realizationtime.btdogg.persist.MongoPersist.{Liveness, MongoWriteException, TorrentDocument}
+import com.realizationtime.btdogg.persist.MongoPersist.{ConnectionWrapper, Liveness, MongoWriteException, TorrentDocument}
 import com.realizationtime.btdogg.persist.MongoPersistImpl.{connect, isDuplicateIdError, localDateToString}
 import reactivemongo.api.{MongoConnection, MongoDriver}
 import reactivemongo.api.collections.bson.BSONCollection
@@ -18,7 +18,7 @@ import scala.util.{Failure, Success}
 
 class MongoPersistImpl(val uri: String)(implicit private val ec: ExecutionContext) extends MongoPersist {
 
-  private val connection = connect(uri)
+  override val connection: ConnectionWrapper = connect(uri)
   private val torrents = connection.collection
 
   private implicit val tkeyWriter = new BSONWriter[TKey, BSONString] {
@@ -107,13 +107,6 @@ object MongoPersistImpl {
     val db = connection.database(parsedUri.db.get)
     val torrents: Future[BSONCollection] = db.map(_.collection("torrents"))
     ConnectionWrapper(driver, connection, torrents)
-  }
-
-  final case class ConnectionWrapper(driver: MongoDriver, connection: MongoConnection, collection: Future[BSONCollection]) {
-    def stop(): Unit = {
-      connection.close()
-      driver.close()
-    }
   }
 
   implicit val livenessWriter: BSONDocumentWriter[Liveness] = Macros.writer[Liveness]

@@ -1,6 +1,7 @@
 package com.realizationtime.btdogg
 
 import java.nio.file.{Files, Path, Paths}
+import java.time.ZoneId
 
 import com.typesafe.config.{Config, ConfigFactory}
 
@@ -24,6 +25,7 @@ object BtDoggConfiguration {
   import com.realizationtime.btdogg.utils.TimeUtils.asFiniteDuration
 
   val standardBufferSize: Int = rootConfig.getInt("standardBufferSize")
+  val timeZone: ZoneId = ZoneId.of(rootConfig.getString("timeZone"))
 
   object HashSourcesConfig {
     private val config = rootConfig.getConfig("hashSources")

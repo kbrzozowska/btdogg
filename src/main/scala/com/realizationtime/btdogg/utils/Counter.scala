@@ -32,9 +32,13 @@ object Counter {
 
   def apply[T](window: scala.concurrent.duration.Duration): (T) => Tick[T] = nanosecondsWindow(window.toNanos)
 
-  def nanosecondsWindow[T](nanoWindow: Long): (T) => Tick[T] = {
+  def apply[T](window: scala.concurrent.duration.Duration, clock: () => Long): (T) => Tick[T] = nanosecondsWindow(window.toNanos, clock)
+
+  def nanosecondsWindow[T](nanoWindow: Long, clock: () => Long = () => {
+    System.nanoTime()
+  }): (T) => Tick[T] = {
     val startTime = System.nanoTime()
-    var ticksQueue = Queue[Long]()
+    var ticksQueue: Vector[Long] = Vector[Long]()
     var previousI = 0L
 
     def timeNanos(): Long = {
@@ -55,8 +59,7 @@ object Counter {
     (t: T) => {
       val suchNow = System.nanoTime()
       val windowBorder = suchNow - nanoWindow
-      ticksQueue = ticksQueue.enqueue(suchNow)
-        .dropWhile(_ < windowBorder)
+      ticksQueue = ticksQueue :+ suchNow dropWhile (_ < windowBorder)
       val i = previousI + 1
       val rate: BigDecimal = BigDecimal(ticksQueue.length) / (BigDecimal(timeNanos()) / BigDecimal(1000000000L))
       val rateScaled = rate.setScale(3, RoundingMode.HALF_UP)
@@ -67,6 +70,8 @@ object Counter {
 
   final case class Tick[T](i: Long, rate: BigDecimal, item: T) {
     def apply(): T = item
+
+    override def toString: String = s"$i. $rate/s $item"
   }
 
 }

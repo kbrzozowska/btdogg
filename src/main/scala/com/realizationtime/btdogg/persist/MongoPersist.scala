@@ -5,6 +5,9 @@ import java.time.{Instant, LocalDate}
 import com.realizationtime.btdogg.TKey
 import com.realizationtime.btdogg.parsing.ParsingResult
 import com.realizationtime.btdogg.parsing.ParsingResult.{FileEntry, TorrentData}
+import com.realizationtime.btdogg.persist.MongoPersist.ConnectionWrapper
+import reactivemongo.api.{MongoConnection, MongoDriver}
+import reactivemongo.api.collections.bson.BSONCollection
 import reactivemongo.api.commands.{DefaultWriteResult, UpdateWriteResult, WriteResult}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -24,6 +27,8 @@ trait MongoPersist {
   def delete(torrent: TKey): Future[WriteResult]
 
   def stop(): Unit
+
+  val connection: ConnectionWrapper
 }
 
 object MongoPersist {
@@ -36,7 +41,7 @@ object MongoPersist {
                              data: List[FileEntry],
                              creation: Instant = Instant.now(),
                              liveness: Liveness = Liveness()) {
-    def key = _id
+    def key: TKey = _id
   }
 
   object TorrentDocument {
@@ -47,6 +52,13 @@ object MongoPersist {
                       announces: Map[LocalDate, Int] = Map())
 
   case class MongoWriteException(writeResult: WriteResult) extends RuntimeException(s"Error writing to MongoDB ${writeResult.writeErrors}")
+
+  final case class ConnectionWrapper(driver: MongoDriver, connection: MongoConnection, collection: Future[BSONCollection]) {
+    def stop(): Unit = {
+      connection.close()
+      driver.close()
+    }
+  }
 
   private object MongoPersistNOP extends MongoPersist {
     override def save(sr: ParsingResult): Future[ParsingResult] = Future.successful(sr)
@@ -67,6 +79,7 @@ object MongoPersist {
 
     override def incrementLivenessAnnounces(key: TKey, date: LocalDate, count: Int): Future[UpdateWriteResult] = Future.successful(updateSuccessful)
 
+    override val connection: ConnectionWrapper = null
   }
 
 }

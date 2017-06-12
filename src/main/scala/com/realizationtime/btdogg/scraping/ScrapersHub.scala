@@ -14,7 +14,7 @@ class ScrapersHub extends Actor with ActorLogging {
   private var idPrefixesToScrapers: Map[String, ActorRef] = Map[String, ActorRef]()
     .withDefault(keyPrefix => {
       val ret = idPrefixesToScrapers.toStream(Random.nextInt(idPrefixesToScrapers.size))
-      log.debug(s"Found random scraper with prefix ${ret._1} for key $keyPrefix...")
+      log.debug(s"Found random scraper with prefix ${ret._1} for key $keyPrefix")
       ret._2
     })
 
