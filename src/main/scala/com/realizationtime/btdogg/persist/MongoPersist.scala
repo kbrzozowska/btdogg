@@ -4,7 +4,7 @@ import java.time.{Instant, LocalDate}
 
 import com.realizationtime.btdogg.TKey
 import com.realizationtime.btdogg.parsing.ParsingResult
-import com.realizationtime.btdogg.parsing.ParsingResult.{FileEntry, TorrentData}
+import com.realizationtime.btdogg.parsing.ParsingResult.{FileEntry, TorrentData, TorrentDir, TorrentFile}
 import com.realizationtime.btdogg.persist.MongoPersist.ConnectionWrapper
 import reactivemongo.api.{MongoConnection, MongoDriver}
 import reactivemongo.api.collections.bson.BSONCollection

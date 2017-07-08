@@ -100,7 +100,7 @@ object DhtsManager {
 
   case object Boot
 
-  sealed abstract trait BootingPhase
+  sealed trait BootingPhase
 
   final case class NodeReady(key: TKey, port: Int, lifecycleController: ActorRef, hashesSource: ActorRef, scraping: ActorRef) extends BootingPhase
 

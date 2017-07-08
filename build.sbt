@@ -8,6 +8,7 @@ libraryDependencies ++= {
   val mldhtV         = "0.0.2-SNAPSHOT"
   val reactiveMongoV = "0.12.3"
   val elastic4sV     = "5.4.3"
+  val jacksonJsr310  = "2.8.9"
   val redisScalaV    = "1.8.0"
   val scalaTestV     = "3.0.1"
   val scalaCheckV    = "1.13.4"
@@ -30,6 +31,7 @@ libraryDependencies ++= {
     ),
     "com.sksamuel.elastic4s"          %%  "elastic4s-streams"           % elastic4sV,
     "com.sksamuel.elastic4s"          %%  "elastic4s-jackson"           % elastic4sV,
+    "com.fasterxml.jackson.datatype"  %   "jackson-datatype-jsr310"     % jacksonJsr310,
     "com.github.etaty"                %%  "rediscala"                   % redisScalaV,
     "org.scalatest"                   %%  "scalatest"                   % scalaTestV  % "test",
     "org.mockito"                     %   "mockito-core"                % mockitoV % "test",
@@ -59,3 +61,4 @@ mainClass in Compile := Some("com.realizationtime.btdogg.BtDoggMain")
 
 cancelable in Global := true
 fork in run := true
+javaOptions += "-Xmx2G"

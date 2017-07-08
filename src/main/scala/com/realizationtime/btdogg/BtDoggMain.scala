@@ -10,6 +10,7 @@ import com.realizationtime.btdogg.BtDoggConfiguration.MongoConfig.parallelismLev
 import com.realizationtime.btdogg.BtDoggConfiguration.RedisConfig
 import com.realizationtime.btdogg.BtDoggConfiguration.ScrapingConfig.torrentFetchTimeout
 import com.realizationtime.btdogg.RootActor.{GetScrapersHub, SubscribePublisher, UnsubscribePublisher}
+import com.realizationtime.btdogg.elastic.Elastic
 import com.realizationtime.btdogg.filtering.CountersFlusher.Stop
 import com.realizationtime.btdogg.filtering.{CountersFlusher, FilteringProcess}
 import com.realizationtime.btdogg.parsing.ParsingResult
@@ -22,7 +23,7 @@ import redis.RedisClient
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Promise}
+import scala.concurrent.{Await, Future, Promise}
 import scala.language.postfixOps
 import scala.util.{Failure, Success}
 
@@ -33,12 +34,16 @@ class BtDoggMain {
   def scheduleShutdown(delay: FiniteDuration): Unit = {
     log.info(s"Ordered shutdown in $delay")
     system.scheduler.scheduleOnce(delay, () => {
-      keysProcessing.future.value match {
-        case Some(Success(publisher)) => rootActor ! UnsubscribePublisher(publisher, Some(Status.Success("shutdown")))
-        case Some(Failure(_)) => haltNow()
-        case None =>
+      scrapersHub.value match {
+        case Some(Success(FetchTorrentsResult(rootActor, publisher))) =>
+          log.info("Stopping system gracefully")
+          rootActor ! UnsubscribePublisher(publisher, Some(Status.Success("shutdown")))
+        case Some(Failure(_)) =>
+          log.info("Stopping system after failure")
           haltNow()
-          keysProcessing.future.foreach(publisher => rootActor ! UnsubscribePublisher(publisher, Some(Status.Success("shutdown"))))
+        case None =>
+          log.error("Stopping system violently")
+          haltNow()
       }
     })
   }
@@ -49,7 +54,6 @@ class BtDoggMain {
   }
 
   private implicit val system = ActorSystem("BtDogg")
-  private val rootActor = system.actorOf(Props[RootActor], "rootActor")
   private implicit val log = Logging(system, classOf[BtDoggMain])
   private val decider: Supervision.Decider = { e =>
     log.error(e, "Unhandled exception in stream")
@@ -59,12 +63,15 @@ class BtDoggMain {
   private implicit val materializer = ActorMaterializer(materializerSettings)
   log.info("Starting btdogg...")
 
+  private val elastic = new Elastic(BtDoggConfiguration.ElasticConfig)
+
   private val mongoPersist = MongoPersist(BtDoggConfiguration.MongoConfig.uri)
+
+
   private val entryFilterDB = RedisClient(db = Some(RedisConfig.entryFilterDb))
   private val hashesCurrentlyBeingScrapedDb = RedisClient(db = Some(RedisConfig.currentlyProcessedDb))
-  Await.ready(hashesCurrentlyBeingScrapedDb.flushdb(), 1 minute)
 
-  val filteringProcess = new FilteringProcess(
+  private val filteringProcess = new FilteringProcess(
     entryFilterDB = entryFilterDB,
     hashesBeingScrapedDB = hashesCurrentlyBeingScrapedDb,
     mongoPersist = mongoPersist
@@ -74,59 +81,76 @@ class BtDoggMain {
 
   private implicit val timeout: Timeout = Timeout(torrentFetchTimeout * 2)
 
-  private val keysProcessing: Promise[ActorRef] = Promise()
+  private val scrapersHub = hashesCurrentlyBeingScrapedDb.flushdb()
+    .flatMap(_ => elastic.ensureIndexExists())
+    .flatMap(_ => fetchTorrents())
+    .recoverWith {
+      case t =>
+        log.error(t, "Scraping process failed")
+        Future.failed(t)
+    }
 
-  (rootActor ? GetScrapersHub).mapTo[ActorRef].onComplete {
-    case Success(scrapingHub) =>
-      val scrapingProcess = new ScrapingProcess(scrapingHub, hashesCurrentlyBeingScrapedDb)
-      val (publisher, completeFuture) = filteringProcess.onlyNewHashes
-        .via(scrapingProcess.flow)
-        .mapAsyncUnordered(parallelismLevel)(res => mongoPersist.save(res).recover {
-          case ex: Throwable => ParsingResult(res.key, res.path, Failure(ex))
-        })
-        .map(res => {
-          res match {
-            case ParsingResult(key, path, Failure(ex)) =>
-              log.error(ex, s"error processing torrent $key in file $path")
-              moveFileToFaulty(path)
-            case success =>
-              removeFile(success)
-          }
-          res
-        })
-        .mapAsyncUnordered(RedisConfig.parallelismLevel)(res => {
-          hashesCurrentlyBeingScrapedDb.del(res.key.hash)
-            .map(_ => res)
-            .recover {
-              case ex: Throwable =>
-                log.error(ex, s"Error deleting ${res.key} from currently processed hashes DB")
-                res
+  scrapersHub.foreach(_ => log.info("Scraping process launched"))
+
+
+  def fetchTorrents(): Future[FetchTorrentsResult] = {
+    val keysProcessing: Promise[FetchTorrentsResult] = Promise()
+    val rootActor = system.actorOf(Props[RootActor], "rootActor")
+
+    (rootActor ? GetScrapersHub).mapTo[ActorRef].onComplete {
+      case Success(scrapingHub) =>
+        val scrapingProcess = new ScrapingProcess(scrapingHub, hashesCurrentlyBeingScrapedDb)
+        val (publisher, completeFuture) = filteringProcess.onlyNewHashes
+          .via(scrapingProcess.flow)
+          .mapAsyncUnordered(parallelismLevel)(res => mongoPersist.save(res).recover {
+            case ex: Throwable => ParsingResult(res.key, res.path, Failure(ex))
+          })
+          .map(res => {
+            res match {
+              case ParsingResult(key, path, Failure(ex)) =>
+                log.error(ex, s"error processing torrent $key in file $path")
+                moveFileToFaulty(path)
+              case success =>
+                removeFile(success)
             }
-        })
-        .filter(_.result.isSuccess)
-        .map(Counter(window = 2 minutes))
-        .toMat(Sink.foreach {
-          case Tick(i, rate, res) =>
-            println(s"$i. $rate/s ${res.key.hash} ${res.result.get.title.getOrElse("<NoTitle>")}")
-        })(Keep.both)
-        .run()
+            res
+          })
+          .mapAsyncUnordered(RedisConfig.parallelismLevel)(res => {
+            hashesCurrentlyBeingScrapedDb.del(res.key.hash)
+              .map(_ => res)
+              .recover {
+                case ex: Throwable =>
+                  log.error(ex, s"Error deleting ${res.key} from currently processed hashes DB")
+                  res
+              }
+          })
+          .filter(_.result.isSuccess)
+          .map(Counter(window = 2 minutes))
+          .toMat(Sink.foreach {
+            case Tick(i, rate, res) =>
+              println(s"$i. $rate/s ${res.key.hash} ${res.result.get.title.getOrElse("<NoTitle>")}")
+          })(Keep.both)
+          .run()
 
-      val countersFlusher = system.actorOf(Props(classOf[CountersFlusher], entryFilterDB, mongoPersist, global, materializer), "CountersFlusher")
+        val countersFlusher = system.actorOf(Props(classOf[CountersFlusher], entryFilterDB, mongoPersist, global, materializer), "CountersFlusher")
 
-      completeFuture.onComplete(_ => (rootActor ? RootActor.ShutdownDHTs)
-        .onComplete(_ => {
-          implicit val timeout = Timeout(1 hour)
-          countersFlusher ? Stop
-        }
-          .onComplete(_ => haltNow())))
+        completeFuture.onComplete(_ => (rootActor ? RootActor.ShutdownDHTs)
+          .onComplete(_ => {
+            implicit val timeout = Timeout(1 hour)
+            countersFlusher ? Stop
+          }
+            .onComplete(_ => haltNow())))
 
-      rootActor ! SubscribePublisher(publisher)
-      keysProcessing.success(publisher)
-    case Failure(ex) =>
-      log.error(ex, "Error getting ScrapersHub")
-      keysProcessing.failure(ex)
+        rootActor ! SubscribePublisher(publisher)
+        keysProcessing.success(FetchTorrentsResult(rootActor = rootActor, publisher = publisher))
+      case Failure(ex) =>
+        log.error(ex, "Error getting ScrapersHub")
+        keysProcessing.failure(ex)
+    }
+    keysProcessing.future
   }
 
+  final case class FetchTorrentsResult(rootActor: ActorRef, publisher: ActorRef)
 }
 
 object BtDoggMain extends App {

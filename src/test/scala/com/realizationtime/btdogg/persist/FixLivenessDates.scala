@@ -3,10 +3,10 @@ package com.realizationtime.btdogg.persist
 import java.time.{Instant, LocalDate}
 import java.util.concurrent.TimeUnit
 
-import com.realizationtime.btdogg.TKey
 import com.realizationtime.btdogg.filtering.CountersFlusher
-import com.realizationtime.btdogg.persist.FixLivenessDates.{TorrentParsed, normalizeLiveness}
+import com.realizationtime.btdogg.persist.FixLivenessDates.normalizeLiveness
 import com.realizationtime.btdogg.persist.MongoPersist.Liveness
+import com.realizationtime.btdogg.persist.MongoTorrentReader.TorrentParsed
 import org.scalatest.prop.PropertyChecks
 import org.scalatest.{FlatSpec, Ignore, Matchers}
 import reactivemongo.akkastream.cursorProducer
@@ -16,7 +16,7 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
 
 @Ignore
-class FixLivenessDates extends FlatSpec with Matchers with PropertyChecks with MongoTorrentReader {
+class FixLivenessDates extends FlatSpec with Matchers with PropertyChecks with MongoTorrentReader with TestTorrentReader {
 
   import MongoPersistImpl.livenessWriter
 
@@ -88,8 +88,6 @@ class FixLivenessDates extends FlatSpec with Matchers with PropertyChecks with M
 }
 
 object FixLivenessDates {
-
-  case class TorrentParsed(id: TKey, liveness: Liveness)
 
   def normalizeLiveness(l: Liveness): Liveness = {
     def normalizeMap(counters: Map[LocalDate, Int]): Map[LocalDate, Int] =

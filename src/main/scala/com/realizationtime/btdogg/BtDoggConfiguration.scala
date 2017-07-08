@@ -3,6 +3,7 @@ package com.realizationtime.btdogg
 import java.nio.file.{Files, Path, Paths}
 import java.time.ZoneId
 
+import com.sksamuel.elastic4s.ElasticsearchClientUri
 import com.typesafe.config.{Config, ConfigFactory}
 
 import scala.language.postfixOps
@@ -72,6 +73,23 @@ object BtDoggConfiguration {
     private val config = rootConfig.getConfig("mongo")
     val uri: String = config.getString("uri")
     val parallelismLevel: Int = config.getInt("parallelismLevel")
+  }
+
+  trait ElasticConfigI {
+
+    val uri: ElasticsearchClientUri
+    val clusterName: String
+    val index: String
+    val collection: String
+
+  }
+
+  object ElasticConfig extends ElasticConfigI {
+    private val config = rootConfig.getConfig("elastic")
+    override val uri = ElasticsearchClientUri(config.getString("host"), config.getInt("port"))
+    override val clusterName: String = config.getString("clusterName")
+    override val index: String = config.getString("index")
+    override val collection: String = config.getString("collection")
   }
 
 }
