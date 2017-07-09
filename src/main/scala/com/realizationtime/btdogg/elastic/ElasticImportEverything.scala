@@ -26,7 +26,7 @@ import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 
-class ElasticImportEverything(private val client: TcpClient,
+private[elastic] class ElasticImportEverything(private val client: TcpClient,
                               private val connection: MongoPersist.ConnectionWrapper,
                               private val config: ElasticConfigI)(implicit private val ec: ExecutionContext,
                                                                   implicit private val mat: ActorMaterializer,

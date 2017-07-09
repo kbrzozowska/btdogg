@@ -4,7 +4,7 @@ resolvers += "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/
 //resolvers += Resolver.jcenterRepo
 
 libraryDependencies ++= {
-  val akkaV          = "2.5.2"
+  val akkaV          = "2.5.3"
   val mldhtV         = "0.0.2-SNAPSHOT"
   val reactiveMongoV = "0.12.3"
   val elastic4sV     = "5.4.3"

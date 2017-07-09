@@ -20,11 +20,9 @@ object Counter {
           (oldHistory.length, time, dequeued.enqueue(suchNow))
         }
       val i = previousI + 1
-      val rate: BigDecimal = BigDecimal(n) / (BigDecimal(suchNow - time) / BigDecimal(1000000000L))
-      val rateScaled = rate.setScale(3, RoundingMode.HALF_UP)
       previousI = i
       oldHistory = newHistory
-      Tick(i, rateScaled, t)
+      Tick(i, Rate(n, suchNow - time), t)
     }
   }
 
@@ -37,7 +35,7 @@ object Counter {
   def nanosecondsWindow[T](nanoWindow: Long, clock: () => Long = () => {
     System.nanoTime()
   }): (T) => Tick[T] = {
-    val startTime = System.nanoTime()
+    val startTime = clock()
     var ticksQueue: Vector[Long] = Vector[Long]()
     var previousI = 0L
 
@@ -56,22 +54,37 @@ object Counter {
         candidate
     }
 
-    (t: T) => {
-      val suchNow = System.nanoTime()
+    def trimQueue(suchNow: Long) = {
+      import scala.collection.Searching._
       val windowBorder = suchNow - nanoWindow
-      ticksQueue = ticksQueue :+ suchNow dropWhile (_ < windowBorder)
-      val i = previousI + 1
-      val rate: BigDecimal = BigDecimal(ticksQueue.length) / (BigDecimal(timeNanos()) / BigDecimal(1000000000L))
-      val rateScaled = rate.setScale(3, RoundingMode.HALF_UP)
-      previousI = i
-      Tick(i, rateScaled, t)
+      val removeUntilIndex = ticksQueue.search(windowBorder).insertionPoint
+      ticksQueue = ticksQueue drop removeUntilIndex
+    }
+
+    (t: T) => {
+      val suchNow = clock()
+      trimQueue(suchNow)
+      ticksQueue = ticksQueue :+ suchNow
+      previousI = previousI + 1
+      Tick(previousI, Rate(ticksQueue.length, timeNanos()), t)
     }
   }
 
-  final case class Tick[T](i: Long, rate: BigDecimal, item: T) {
+  final case class Tick[T](i: Long, rate: Rate, item: T) {
     def apply(): T = item
 
     override def toString: String = s"$i. $rate/s $item"
+  }
+
+  final case class Rate(ticksCount: Long, timeNanos: Long) {
+    lazy val rateUnscaled: BigDecimal = BigDecimal(ticksCount) / (BigDecimal(timeNanos) / BigDecimal(1000000000L))
+    lazy val rate: BigDecimal = rateUnscaled.setScale(3, RoundingMode.HALF_UP)
+
+    def apply(): BigDecimal = rate
+
+    override def toString: String = {
+      rate.toString()
+    }
   }
 
 }

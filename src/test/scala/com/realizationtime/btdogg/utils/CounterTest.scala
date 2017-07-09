@@ -34,13 +34,14 @@ class CounterTest extends FlatSpec with Matchers {
 
     val start = Instant.now()
 
-    val fut = Source.tick(Duration.Zero, 1 millisecond, "a")
+//    val fut = Source.tick(Duration.Zero, 1 millisecond, "a")
+    val fut = Source.repeat("a")
       //      .take(1000000)
-      .limit(500000)
+      .limit(5000000)
       .map(Counter(2 minutes))
       //      .zipWithIndex
       //      .filter(_.i % 1000L == 0)
-      .filter(t => t.i % 1000L == 0)
+      .filter(t => t.i % 100000L == 0)
       //      .map(t => {
       //        Instant.now()
       //      })
@@ -52,7 +53,7 @@ class CounterTest extends FlatSpec with Matchers {
       .runForeach(t => {
       val now = Instant.now()
 //      println(s"$now $t ${java.time.Duration.between(start, now)}")
-      println(s"${java.time.Duration.between(start, now).getSeconds} ${t.rate.toInt}")
+      println(s"${t.i}. ${java.time.Duration.between(start, now).getSeconds} ${t.rate().toInt} ticks: ${t.rate.ticksCount}")
     })
     Await.ready(fut, Duration.Inf)
   }
