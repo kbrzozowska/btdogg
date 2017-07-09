@@ -4,10 +4,10 @@ import java.net.URLEncoder
 import java.time.temporal.ChronoUnit
 import java.time.{Instant, LocalDate}
 
-import akka.NotUsed
+import akka.Done
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{Flow, Sink}
+import akka.stream.scaladsl.{Keep, Sink}
 import com.realizationtime.btdogg.BtDoggConfiguration
 import com.realizationtime.btdogg.BtDoggConfiguration.ElasticConfigI
 import com.realizationtime.btdogg.elastic.ElasticImportEverything.ElasticTorrent
@@ -17,12 +17,13 @@ import com.realizationtime.btdogg.persist.{MongoPersist, MongoTorrentReader}
 import com.realizationtime.btdogg.utils.Counter
 import com.realizationtime.btdogg.utils.Counter.Tick
 import com.sksamuel.elastic4s.TcpClient
-import com.sksamuel.elastic4s.bulk.{BulkCompatibleDefinition, RichBulkItemResponse}
-import com.sksamuel.elastic4s.streams.{RequestBuilder, ResponseListener}
+import com.sksamuel.elastic4s.bulk.BulkCompatibleDefinition
+import com.sksamuel.elastic4s.streams.RequestBuilder
+import com.typesafe.scalalogging.Logger
 import reactivemongo.akkastream.cursorProducer
 
 import scala.annotation.tailrec
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 
 class ElasticImportEverything(private val client: TcpClient,
@@ -32,24 +33,13 @@ class ElasticImportEverything(private val client: TcpClient,
                                                                   implicit private val system: ActorSystem) extends MongoTorrentReader {
 
   import com.sksamuel.elastic4s.jackson.ElasticJackson.Implicits._
-  import com.sksamuel.elastic4s.streams.ReactiveElastic._
   import reactivemongo.bson._
 
   import scala.concurrent.duration._
 
-  private val responseListener = new ResponseListener {
-    override def onAck(resp: RichBulkItemResponse): Unit = {
-      //      println(s"save succeeded: $resp")
-    }
+  private val log = Logger(classOf[ElasticImportEverything])
 
-    override def onFailure(resp: RichBulkItemResponse): Unit = {
-      println(s"save failed: $resp")
-      println(s"save failed: ${resp.failureMessage}")
-    }
-  }
-
-
-  def importEverything(): Future[Unit] = {
+  def importEverything(): Future[Done] = {
     val start = Instant.now()
     connection.collection
       .map(_.find(BSONDocument.empty)
@@ -61,50 +51,41 @@ class ElasticImportEverything(private val client: TcpClient,
 
           def request(t: ElasticTorrent): BulkCompatibleDefinition = indexInto(config.index / config.collection).id(t.id).doc(t)
         }
-        val promise = Promise[Unit]()
-        val sink: Sink[ElasticTorrent, NotUsed] = Sink.fromSubscriber(
-          client.subscriber[ElasticTorrent](concurrentRequests = 1,
-            listener = responseListener, batchSize = 100,
-            completionFn = () => {
-              promise.success()
-              ()
-            },
-            errorFn = (t: Throwable) => {
-              promise.failure(t)
-              ()
-            }
-          ))
 
         source
-          .take(1000)
+          //          .take(1000)
           .map(ElasticTorrent(_))
+          .grouped(config.insertBatchSize)
           .async
-          //          .mapAsync(1)(t => {
-          //          client.execute {
-          //            indexInto("btdogg" / "torrent").id(t.id).doc(t)
-          //          }.map(_ => t)
-          //        })
-          .alsoTo(Flow[ElasticTorrent].map(Counter(window = 2 minutes))
-          .filter(_.i % 1000L == 0)
+          .map(torrents => (torrents, torrents.map(t => {
+            indexInto(config.index / config.collection).id(t.id).doc(t)
+          })))
+          .mapAsync(1) {
+            case (torrents, inserts) =>
+              client.execute(bulk(inserts))
+                .map(_ => torrents)
+          }
+          .mapConcat(torrents => torrents)
+          .map(Counter(window = 2 minutes))
+          //          .filter(_.i % 1000L == 0)
           //          .zipWithIndex
           //          .filter(_._2 % 1000L == 0)
           //          .toMat(Sink.foreach({ case (item, i) =>
-          .to(Sink.foreach({
-          case Tick(i, rate, item) =>
-            val now = Instant.now()
-            println(s"$i. $rate/s ${java.time.Duration.between(start, now).getSeconds} ${item.id} ${item.title}")
-          //            println("Json:")
-          //            val mapper = new ObjectMapper() with ScalaObjectMapper
-          //            mapper.registerModule(DefaultScalaModule)
-          //              .registerModule(new JavaTimeModule)
-          //              .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
-          //            println(mapper.writeValueAsString(item))
-          //          //          println(s"$i. ${java.time.Duration.between(start, now).getSeconds} ${item.id} ${item.title}")
-          //          //            println(s"$i. $rate/s $item")
-        })))
-          .runWith(sink)
-        promise.future
-        //          .run()
+          .async
+          .toMat(Sink.foreach({
+            case Tick(i, rate, item) =>
+              val now = Instant.now()
+              log.info(s"\n$i. $rate/s ${java.time.Duration.between(start, now).getSeconds} ${item.id} ${item.title}")
+            //            println("Json:")
+            //            val mapper = new ObjectMapper() with ScalaObjectMapper
+            //            mapper.registerModule(DefaultScalaModule)
+            //              .registerModule(new JavaTimeModule)
+            //              .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+            //            println(mapper.writeValueAsString(item))
+            //          //          println(s"$i. ${java.time.Duration.between(start, now).getSeconds} ${item.id} ${item.title}")
+            //          //            println(s"$i. $rate/s $item")
+          }))(Keep.right)
+          .run()
       })
   }
 

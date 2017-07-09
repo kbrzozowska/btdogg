@@ -24,7 +24,7 @@ import scala.math.BigDecimal.RoundingMode
 
 @Ignore
 class Statistics extends FlatSpec {
-  val window = time.Duration.ofSeconds(45)
+  val window = time.Duration.ofSeconds(10)
   val statsPlik = Paths.get("/tmp/statsy.csv")
   implicit val actorSystem = ActorSystem("BtdoggTestSystem")
   implicit val materializer = ActorMaterializer()
@@ -48,7 +48,13 @@ class Statistics extends FlatSpec {
             println(s"tera: $index")
           time
       }
-    val statsF: Future[Map[ZonedDateTime, Long]] = times.runWith(Sink.fold(Map[ZonedDateTime, Long]().withDefaultValue(0L)) { (map, time) =>
+    val statsF: Future[Map[ZonedDateTime, Long]] = times
+        .zipWithIndex
+        .map(p => {
+          println(s"${p._2}. ${p._1}")
+          p._1
+        })
+      .runWith(Sink.fold(Map[ZonedDateTime, Long]().withDefaultValue(0L)) { (map, time) =>
       val i = map(time) + 1L
       map + (time -> i)
     })

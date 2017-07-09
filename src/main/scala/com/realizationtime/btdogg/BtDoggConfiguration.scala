@@ -81,6 +81,7 @@ object BtDoggConfiguration {
     val clusterName: String
     val index: String
     val collection: String
+    val insertBatchSize: Int
 
   }
 
@@ -90,6 +91,7 @@ object BtDoggConfiguration {
     override val clusterName: String = config.getString("clusterName")
     override val index: String = config.getString("index")
     override val collection: String = config.getString("collection")
+    override val insertBatchSize: Int = config.getInt("insertBatchSize")
   }
 
 }

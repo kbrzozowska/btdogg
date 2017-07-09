@@ -11,6 +11,7 @@ import com.realizationtime.btdogg.BtDoggConfiguration.RedisConfig
 import com.realizationtime.btdogg.BtDoggConfiguration.ScrapingConfig.torrentFetchTimeout
 import com.realizationtime.btdogg.RootActor.{GetScrapersHub, SubscribePublisher, UnsubscribePublisher}
 import com.realizationtime.btdogg.elastic.Elastic
+import com.realizationtime.btdogg.elastic.Elastic.IndexAlreadyExisted
 import com.realizationtime.btdogg.filtering.CountersFlusher.Stop
 import com.realizationtime.btdogg.filtering.{CountersFlusher, FilteringProcess}
 import com.realizationtime.btdogg.parsing.ParsingResult
@@ -83,6 +84,12 @@ class BtDoggMain {
 
   private val scrapersHub = hashesCurrentlyBeingScrapedDb.flushdb()
     .flatMap(_ => elastic.ensureIndexExists())
+      .flatMap(res =>
+        if (res == IndexAlreadyExisted)
+          Future.successful()
+        else
+          elastic.importEverythingIntoElasticsearch(mongoPersist.connection)
+      )
     .flatMap(_ => fetchTorrents())
     .recoverWith {
       case t =>

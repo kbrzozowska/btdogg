@@ -11,18 +11,14 @@ object RedisUtils {
   private implicit val deserializer = redis.ByteStringDeserializer.String
 
   def streamAll(redisClient: RedisClient)(implicit ec: ExecutionContext): Source[KV, NotUsed] = {
-    val startIndex: Option[Int] = None
-    val portions: Source[Seq[String], NotUsed] = Source.unfoldAsync(startIndex)((cur: Option[Int]) => {
-      if (cur.contains(0))
-        Future.successful(None)
-      else redisClient.scan(cursor = cur.getOrElse(0))
-        .map((cur: Cursor[Seq[String]]) => {
-          val retFromFold: (Option[Int], Seq[String]) = (Some(cur.index), cur.data)
-          Some(retFromFold)
-        })
+    val startState = FoldingState()
+    val keys: Source[String, NotUsed] = Source.unfoldAsync(startState)((cur: FoldingState) => {
+      cur.fold(redisClient)
     })
-    val flat: Source[KV, NotUsed] = portions.mapConcat(el => el.toList)
-      .mapAsyncUnordered(10)(key => redisClient.get(key).map(_.map(value => key -> value)))
+    val flat: Source[KV, NotUsed] = keys
+      .mapAsyncUnordered(10)(key => {
+      redisClient.get(key).map(_.map(value => key -> value))
+    })
       .filter(_.isDefined)
       .map(_.get)
       .map(KV(_))
@@ -30,8 +26,49 @@ object RedisUtils {
   }
 
   case class KV(key: String, value: String)
+
   object KV {
     def apply(pair: (String, String)): KV = KV(pair._1, pair._2)
+  }
+
+  private case class FoldingState(cursor: Option[Int] = None, portion: Seq[String] = Seq.empty, nextElementIndex: Int = 0) {
+
+    def fold(redisClient: RedisClient)(implicit ec: ExecutionContext): Future[Option[(FoldingState, String)]] = {
+      if (portion.nonEmpty)
+        Future.successful(Some((FoldingState(cursor, nextPortion(), incrementNextElementIndex()), portion(nextElementIndex))))
+      else if (cursor.contains(0))
+        Future.successful(None)
+      else redisClient.scan(cursor = cursor.getOrElse(0))
+        .map((cur: Cursor[Seq[String]]) => {
+          val data = cur.data
+          if (data.isEmpty)
+            None
+          else {
+            val retFromFold: (FoldingState, String) = if (data.size == 1)
+              (FoldingState(Some(cur.index)), data.head)
+              else
+              (FoldingState(Some(cur.index), cur.data, 1), data.head)
+            Some(retFromFold)
+          }
+        })
+    }
+
+    private def nextPortion(): Seq[String] =
+      if (isLast)
+        Seq.empty
+      else
+        portion
+
+    private def isLast = {
+      nextElementIndex + 1 == portion.size
+    }
+
+    private def incrementNextElementIndex(): Int =
+      if (isLast)
+        0
+      else
+        nextElementIndex + 1
+
   }
 
 }

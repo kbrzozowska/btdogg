@@ -9,12 +9,13 @@ import com.realizationtime.btdogg.elastic.Elastic
 import com.realizationtime.btdogg.elastic.ElasticImportEverything.ElasticTorrent
 import com.realizationtime.btdogg.parsing.ParsingResult.{TorrentDir, TorrentFile}
 import org.scalatest.prop.PropertyChecks
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.{FlatSpec, Ignore, Matchers}
 
 import scala.concurrent.Await
 import scala.language.postfixOps
 
 
+@Ignore
 class ImportEverythingIntoElasticsearch extends FlatSpec with Matchers with PropertyChecks with MongoTorrentReader with TestTorrentReader {
 
 
@@ -42,10 +43,5 @@ class ImportEverythingIntoElasticsearch extends FlatSpec with Matchers with Prop
     val flat = ElasticTorrent.flatFiles(List(dir)).head
     flat.name shouldBe "dir/file"
   }
-
-}
-
-object ImportEverythingIntoElasticsearch {
-
 
 }
