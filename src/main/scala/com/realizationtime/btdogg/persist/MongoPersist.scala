@@ -40,12 +40,23 @@ object MongoPersist {
                              totalSize: Long,
                              data: List[FileEntry],
                              creation: Instant = Instant.now(),
+                             modification: Instant,
                              liveness: Liveness = Liveness()) {
     def key: TKey = _id
   }
 
   object TorrentDocument {
-    def create(key: TKey, torrent: TorrentData): TorrentDocument = TorrentDocument(key, torrent.title, torrent.totalSize, torrent.files)
+    def create(key: TKey, torrent: TorrentData): TorrentDocument = {
+      val now = Instant.now()
+      TorrentDocument(
+        _id = key,
+        title = torrent.title,
+        totalSize = torrent.totalSize,
+        data = torrent.files,
+        creation = now,
+        modification = now
+      )
+    }
   }
 
   case class Liveness(requests: Map[LocalDate, Int] = Map(),

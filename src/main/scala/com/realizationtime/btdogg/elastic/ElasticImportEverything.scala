@@ -87,6 +87,7 @@ object ElasticImportEverything {
                             totalSize: Long,
                             files: List[ElasticFile],
                             created: Instant,
+                            modified: Instant,
                             liveness: Int) {
 
     val magnet = s"magnet:?xt=urn:btih:$id&dn=${URLEncoder.encode(title.getOrElse(""), "utf-8")}&tr=udp%3A%2F%2Ftracker.openbittorrent.com%3A80&tr=udp%3A%2F%2Fopentor.org%3A2710&tr=udp%3A%2F%2Ftracker.ccc.de%3A80&tr=udp%3A%2F%2Ftracker.blackunicorn.xyz%3A6969&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969"
@@ -104,7 +105,15 @@ object ElasticImportEverything {
     def apply(mongoTorrent: TorrentDocument): ElasticTorrent = {
       val files: List[ElasticFile] = flatFiles(mongoTorrent.data)
       val liveness: Int = flatLiveness(mongoTorrent.liveness)
-      ElasticTorrent(mongoTorrent._id.hash, mongoTorrent.title, mongoTorrent.totalSize, files, mongoTorrent.creation, liveness)
+      ElasticTorrent(
+        id = mongoTorrent._id.hash,
+        title = mongoTorrent.title,
+        totalSize = mongoTorrent.totalSize,
+        files = files,
+        created = mongoTorrent.creation,
+        modified = mongoTorrent.modification,
+        liveness = liveness
+      )
     }
 
     def flatFiles(data: List[FileEntry]): List[ElasticFile] = {

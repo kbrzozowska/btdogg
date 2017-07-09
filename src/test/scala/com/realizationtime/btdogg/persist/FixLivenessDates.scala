@@ -3,22 +3,28 @@ package com.realizationtime.btdogg.persist
 import java.time.{Instant, LocalDate}
 import java.util.concurrent.TimeUnit
 
+import com.realizationtime.btdogg.TKey
 import com.realizationtime.btdogg.filtering.CountersFlusher
-import com.realizationtime.btdogg.persist.FixLivenessDates.normalizeLiveness
+import com.realizationtime.btdogg.persist.FixLivenessDates.{TorrentParsed, normalizeLiveness}
 import com.realizationtime.btdogg.persist.MongoPersist.Liveness
-import com.realizationtime.btdogg.persist.MongoTorrentReader.TorrentParsed
 import org.scalatest.prop.PropertyChecks
 import org.scalatest.{FlatSpec, Ignore, Matchers}
 import reactivemongo.akkastream.cursorProducer
-import reactivemongo.bson.BSONDocument
+import reactivemongo.bson.{BSONDocument, BSONDocumentReader}
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
 
 @Ignore
-class FixLivenessDates extends FlatSpec with Matchers with PropertyChecks with MongoTorrentReader with TestTorrentReader {
+class FixLivenessDates extends FlatSpec with Matchers with PropertyChecks with MongoTorrentReader with MongoTorrentWriter with TestTorrentReader {
 
-  import MongoPersistImpl.livenessWriter
+  implicit val torrentReader = new BSONDocumentReader[TorrentParsed] {
+    override def read(bson: BSONDocument): TorrentParsed = {
+      val id = TKey(bson.getAs[String]("_id").get)
+      val liveness = bson.getAs[Liveness]("liveness").get
+      TorrentParsed(id, liveness)
+    }
+  }
 
   "Incorrect liveness" should "get printed" in {
     connection.collection.map(col => {
@@ -88,6 +94,8 @@ class FixLivenessDates extends FlatSpec with Matchers with PropertyChecks with M
 }
 
 object FixLivenessDates {
+
+  case class TorrentParsed(id: TKey, liveness: Liveness)
 
   def normalizeLiveness(l: Liveness): Liveness = {
     def normalizeMap(counters: Map[LocalDate, Int]): Map[LocalDate, Int] =

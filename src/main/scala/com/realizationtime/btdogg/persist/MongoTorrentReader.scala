@@ -5,8 +5,7 @@ import java.time.{Instant, LocalDate}
 import com.realizationtime.btdogg.TKey
 import com.realizationtime.btdogg.parsing.ParsingResult.{FileEntry, TorrentDir, TorrentFile}
 import com.realizationtime.btdogg.persist.MongoPersist.{Liveness, TorrentDocument}
-import com.realizationtime.btdogg.persist.MongoTorrentReader.TorrentParsed
-import reactivemongo.bson.{BSONDateTime, BSONDocument, BSONDocumentReader, BSONNumberLike, BSONValue}
+import reactivemongo.bson.{BSONDateTime, BSONDocument, BSONDocumentReader, BSONNumberLike, BSONReader, BSONValue}
 
 trait MongoTorrentReader {
 
@@ -25,14 +24,6 @@ trait MongoTorrentReader {
         livenessMapReader.read(bson.getAs[BSONDocument]("requests").get),
         livenessMapReader.read(bson.getAs[BSONDocument]("announces").get)
       )
-    }
-  }
-
-  implicit val torrentReader = new BSONDocumentReader[TorrentParsed] {
-    override def read(bson: BSONDocument): TorrentParsed = {
-      val id = TKey(bson.getAs[String]("_id").get)
-      val liveness = bson.getAs[Liveness]("liveness").get
-      TorrentParsed(id, liveness)
     }
   }
 
@@ -59,6 +50,10 @@ trait MongoTorrentReader {
         bson.as[TorrentFile]
   }
 
+  implicit object instantReader extends BSONReader[BSONDateTime, Instant] {
+    override def read(bson: BSONDateTime): Instant = Instant.ofEpochMilli(bson.value)
+  }
+
   implicit object TorrentDocumentReader extends BSONDocumentReader[TorrentDocument] {
     override def read(bson: BSONDocument): TorrentDocument = {
       val data = bson.getAs[List[BSONDocument]]("data").get
@@ -70,16 +65,11 @@ trait MongoTorrentReader {
         _id = TKey(bson.getAs[String]("_id").get),
         totalSize = bson.getAs[BSONNumberLike]("totalSize").map(_.toLong).get,
         data = data,
-        creation = bson.getAs[BSONDateTime]("creation").map(s => Instant.ofEpochMilli(s.value)).get,
+        creation = bson.getAs[Instant]("creation").get,
+        modification = bson.getAs[Instant]("modification").get,
         liveness = bson.getAs[Liveness]("liveness").get
       )
     }
   }
-
-}
-
-object MongoTorrentReader {
-
-  case class TorrentParsed(id: TKey, liveness: Liveness)
 
 }
