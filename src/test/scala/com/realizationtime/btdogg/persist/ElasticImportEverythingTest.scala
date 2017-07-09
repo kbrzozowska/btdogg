@@ -16,7 +16,7 @@ import scala.language.postfixOps
 
 
 @Ignore
-class ImportEverythingIntoElasticsearch extends FlatSpec with Matchers with PropertyChecks with MongoTorrentReader with TestTorrentReader {
+class ElasticImportEverythingTest extends FlatSpec with Matchers with PropertyChecks with MongoTorrentReader with TestTorrentReader {
 
 
   import scala.concurrent.duration._

@@ -26,13 +26,13 @@ object Counter {
     }
   }
 
-  def apply[T](window: Duration): (T) => Tick[T] = nanosecondsWindow(window.toNanos)
+  def apply[T](window: Duration): (T) => Tick[T] = withNanosecondsWindow(window.toNanos)
 
-  def apply[T](window: scala.concurrent.duration.Duration): (T) => Tick[T] = nanosecondsWindow(window.toNanos)
+  def apply[T](window: scala.concurrent.duration.Duration): (T) => Tick[T] = withNanosecondsWindow(window.toNanos)
 
-  def apply[T](window: scala.concurrent.duration.Duration, clock: () => Long): (T) => Tick[T] = nanosecondsWindow(window.toNanos, clock)
+  def apply[T](window: scala.concurrent.duration.Duration, clock: () => Long): (T) => Tick[T] = withNanosecondsWindow(window.toNanos, clock)
 
-  def nanosecondsWindow[T](nanoWindow: Long, clock: () => Long = () => {
+  def withNanosecondsWindow[T](nanoWindow: Long, clock: () => Long = () => {
     System.nanoTime()
   }): (T) => Tick[T] = {
     val startTime = clock()

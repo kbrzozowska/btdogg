@@ -82,6 +82,7 @@ object BtDoggConfiguration {
     val index: String
     val collection: String
     val insertBatchSize: Int
+    val insertBatchParallelism: Int
 
   }
 
@@ -92,6 +93,7 @@ object BtDoggConfiguration {
     override val index: String = config.getString("index")
     override val collection: String = config.getString("collection")
     override val insertBatchSize: Int = config.getInt("insertBatchSize")
+    override val insertBatchParallelism: Int = config.getInt("insertBatchParallelism")
   }
 
 }

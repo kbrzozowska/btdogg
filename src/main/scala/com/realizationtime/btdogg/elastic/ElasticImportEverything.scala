@@ -27,10 +27,10 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 
 private[elastic] class ElasticImportEverything(private val client: TcpClient,
-                              private val connection: MongoPersist.ConnectionWrapper,
-                              private val config: ElasticConfigI)(implicit private val ec: ExecutionContext,
-                                                                  implicit private val mat: ActorMaterializer,
-                                                                  implicit private val system: ActorSystem) extends MongoTorrentReader {
+                                               private val connection: MongoPersist.ConnectionWrapper,
+                                               private val config: ElasticConfigI)(implicit private val ec: ExecutionContext,
+                                                                                   implicit private val mat: ActorMaterializer,
+                                                                                   implicit private val system: ActorSystem) extends MongoTorrentReader {
 
   import com.sksamuel.elastic4s.jackson.ElasticJackson.Implicits._
   import reactivemongo.bson._
@@ -60,30 +60,19 @@ private[elastic] class ElasticImportEverything(private val client: TcpClient,
           .map(torrents => (torrents, torrents.map(t => {
             indexInto(config.index / config.collection).id(t.id).doc(t)
           })))
-          .mapAsync(1) {
+          .mapAsync(config.insertBatchParallelism) {
             case (torrents, inserts) =>
               client.execute(bulk(inserts))
                 .map(_ => torrents)
           }
-          .mapConcat(torrents => torrents)
-          .map(Counter(window = 2 minutes))
-          //          .filter(_.i % 1000L == 0)
-          //          .zipWithIndex
-          //          .filter(_._2 % 1000L == 0)
-          //          .toMat(Sink.foreach({ case (item, i) =>
+          .mapConcat(identity)
+          .map(Counter(window = 30 seconds))
           .async
+          .filter(_.i % 1000L == 0)
           .toMat(Sink.foreach({
             case Tick(i, rate, item) =>
               val now = Instant.now()
-              log.info(s"\n$i. $rate/s ${java.time.Duration.between(start, now).getSeconds} ${item.id} ${item.title}")
-            //            println("Json:")
-            //            val mapper = new ObjectMapper() with ScalaObjectMapper
-            //            mapper.registerModule(DefaultScalaModule)
-            //              .registerModule(new JavaTimeModule)
-            //              .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
-            //            println(mapper.writeValueAsString(item))
-            //          //          println(s"$i. ${java.time.Duration.between(start, now).getSeconds} ${item.id} ${item.title}")
-            //          //            println(s"$i. $rate/s $item")
+              log.info(s"$i. $rate/s ${java.time.Duration.between(start, now).getSeconds}\n${item.id} ${item.title.orNull}")
           }))(Keep.right)
           .run()
       })

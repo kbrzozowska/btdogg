@@ -132,7 +132,7 @@ class BtDoggMain {
               }
           })
           .filter(_.result.isSuccess)
-          .map(Counter(window = 2 minutes))
+          .map(Counter(window = 45 seconds))
           .toMat(Sink.foreach {
             case Tick(i, rate, res) =>
               println(s"$i. $rate/s ${res.key.hash} ${res.result.get.title.getOrElse("<NoTitle>")}")
