@@ -7,7 +7,7 @@ import akka.stream.scaladsl.{Keep, Sink}
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
 import akka.util.Timeout
 import com.realizationtime.btdogg.BtDoggConfiguration.MongoConfig.parallelismLevel
-import com.realizationtime.btdogg.BtDoggConfiguration.RedisConfig
+import com.realizationtime.btdogg.BtDoggConfiguration.{ElasticConfig, RedisConfig}
 import com.realizationtime.btdogg.BtDoggConfiguration.ScrapingConfig.torrentFetchTimeout
 import com.realizationtime.btdogg.RootActor.{GetScrapersHub, SubscribePublisher, UnsubscribePublisher}
 import com.realizationtime.btdogg.elastic.Elastic
@@ -84,12 +84,12 @@ class BtDoggMain {
 
   private val scrapersHub = hashesCurrentlyBeingScrapedDb.flushdb()
     .flatMap(_ => elastic.ensureIndexExists())
-      .flatMap(res =>
-        if (res == IndexAlreadyExisted)
-          Future.successful()
-        else
-          elastic.importEverythingIntoElasticsearch(mongoPersist.connection)
-      )
+    .flatMap(res =>
+      if (res == IndexAlreadyExisted)
+        Future.successful((): Unit)
+      else
+        elastic.importEverythingIntoElasticsearch(mongoPersist.connection)
+    )
     .flatMap(_ => fetchTorrents())
     .recoverWith {
       case t =>
@@ -131,6 +131,8 @@ class BtDoggMain {
                   res
               }
           })
+          .via(elastic.insertOne)
+          .map((wtf: ParsingResult[MongoPersist.TorrentDocument]) => wtf)
           .filter(_.result.isSuccess)
           .map(Counter(window = 45 seconds))
           .toMat(Sink.foreach {
@@ -158,6 +160,7 @@ class BtDoggMain {
   }
 
   final case class FetchTorrentsResult(rootActor: ActorRef, publisher: ActorRef)
+
 }
 
 object BtDoggMain extends App {

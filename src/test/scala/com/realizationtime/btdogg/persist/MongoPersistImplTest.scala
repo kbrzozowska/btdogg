@@ -5,6 +5,7 @@ import java.time.LocalDate
 
 import com.realizationtime.btdogg.TKey
 import com.realizationtime.btdogg.parsing.{FileParser, ParsingResult}
+import com.realizationtime.btdogg.persist.MongoPersist.TorrentDocument
 import org.scalatest.Inside.inside
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 import reactivemongo.api.commands.UpdateWriteResult
@@ -61,11 +62,11 @@ class MongoPersistImplTest extends FlatSpec with Matchers with BeforeAndAfterEac
     res shouldBe a[Success[_]]
   }
 
-  def saveTorrent(): Future[ParsingResult] = {
+  def saveTorrent(): Future[ParsingResult[TorrentDocument]] = {
     mongoPersist.save(parsingResult)
   }
 
-  private def assertInsertSucceeded(resTry: Try[ParsingResult]) = {
+  private def assertInsertSucceeded(resTry: Try[ParsingResult[TorrentDocument]]) = {
     resTry shouldBe a[Success[_]]
     val res = resTry.get
     inside(res) {

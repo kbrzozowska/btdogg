@@ -5,7 +5,7 @@ import java.time.{Instant, LocalDate}
 import com.realizationtime.btdogg.TKey
 import com.realizationtime.btdogg.parsing.ParsingResult
 import com.realizationtime.btdogg.parsing.ParsingResult.{FileEntry, TorrentData, TorrentDir, TorrentFile}
-import com.realizationtime.btdogg.persist.MongoPersist.ConnectionWrapper
+import com.realizationtime.btdogg.persist.MongoPersist.{ConnectionWrapper, TorrentDocument}
 import reactivemongo.api.{MongoConnection, MongoDriver}
 import reactivemongo.api.collections.bson.BSONCollection
 import reactivemongo.api.commands.{DefaultWriteResult, UpdateWriteResult, WriteResult}
@@ -14,7 +14,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 trait MongoPersist {
 
-  def save(sr: ParsingResult): Future[ParsingResult]
+  def save(sr: ParsingResult[TorrentData]): Future[ParsingResult[TorrentDocument]]
 
   def exists(key: TKey): Future[Boolean]
 
@@ -69,28 +69,6 @@ object MongoPersist {
       connection.close()
       driver.close()
     }
-  }
-
-  private object MongoPersistNOP extends MongoPersist {
-    override def save(sr: ParsingResult): Future[ParsingResult] = Future.successful(sr)
-
-    private val updateSuccessful = UpdateWriteResult(true, 1, 1, Nil, Nil, None, None, None)
-
-    override def incrementLiveness(key: TKey, date: LocalDate, requests: Int, announces: Int): Future[UpdateWriteResult] =
-      Future.successful(updateSuccessful)
-
-    override def delete(torrent: TKey): Future[WriteResult] =
-      Future.successful(DefaultWriteResult(true, 1, Nil, None, None, None))
-
-    override def stop(): Unit = {}
-
-    override def exists(key: TKey): Future[Boolean] = Future.successful(false)
-
-    override def incrementLivenessRequests(key: TKey, date: LocalDate, count: Int): Future[UpdateWriteResult] = Future.successful(updateSuccessful)
-
-    override def incrementLivenessAnnounces(key: TKey, date: LocalDate, count: Int): Future[UpdateWriteResult] = Future.successful(updateSuccessful)
-
-    override val connection: ConnectionWrapper = null
   }
 
 }

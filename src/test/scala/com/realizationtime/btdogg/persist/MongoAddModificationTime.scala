@@ -8,7 +8,7 @@ import com.realizationtime.btdogg.persist.MongoAddModificationTime.{AlreadyExist
 import com.realizationtime.btdogg.utils.Counter
 import com.realizationtime.btdogg.utils.Counter.Tick
 import org.scalatest.prop.PropertyChecks
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.{FlatSpec, Ignore, Matchers}
 import reactivemongo.akkastream.cursorProducer
 import reactivemongo.bson.{BSONDocument, BSONDocumentReader}
 
@@ -17,6 +17,7 @@ import scala.concurrent.{Await, Future}
 import scala.language.postfixOps
 
 
+@Ignore
 class MongoAddModificationTime extends FlatSpec with Matchers with PropertyChecks with MongoTorrentReader with MongoTorrentWriter with TestTorrentReader {
 
   implicit val torrentReader = new BSONDocumentReader[TorrentWithDates] {

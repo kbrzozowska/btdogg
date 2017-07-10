@@ -60,7 +60,7 @@ private[elastic] class ElasticImportEverything(private val client: TcpClient,
           .map(torrents => (torrents, torrents.map(t => {
             indexInto(config.index / config.collection).id(t.id).doc(t)
           })))
-          .mapAsync(config.insertBatchParallelism) {
+          .mapAsyncUnordered(config.insertBatchParallelism) {
             case (torrents, inserts) =>
               client.execute(bulk(inserts))
                 .map(_ => torrents)

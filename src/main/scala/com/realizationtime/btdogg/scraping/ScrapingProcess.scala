@@ -8,6 +8,7 @@ import com.realizationtime.btdogg.BtDoggConfiguration.HashSourcesConfig.nodesCou
 import com.realizationtime.btdogg.BtDoggConfiguration.RedisConfig
 import com.realizationtime.btdogg.BtDoggConfiguration.ScrapingConfig.{simultaneousTorrentsPerNode, torrentFetchTimeout}
 import com.realizationtime.btdogg.TKey
+import com.realizationtime.btdogg.parsing.ParsingResult.TorrentData
 import com.realizationtime.btdogg.parsing.{FileParser, ParsingResult}
 import com.realizationtime.btdogg.scraping.ScrapersHub.ScrapeResult
 import com.realizationtime.btdogg.utils.FileUtils
@@ -24,7 +25,7 @@ class ScrapingProcess(scrapingHub: ActorRef, hashesBeingScrapedDB: RedisClient)(
   private implicit val timeout: Timeout = Timeout(torrentFetchTimeout * 2)
   private val log = Logger(classOf[ScrapingProcess])
 
-  val flow: Flow[TKey, ParsingResult, NotUsed] = Flow[TKey]
+  val flow: Flow[TKey, ParsingResult[TorrentData], NotUsed] = Flow[TKey]
     .mapAsyncUnordered(simultaneousTorrentsPerNode * nodesCount)(key =>
       (scrapingHub ? key).mapTo[ScrapeResult].recover {
         case ex: Throwable => ScrapeResult(key, Failure(ex))

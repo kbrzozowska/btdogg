@@ -25,7 +25,7 @@ object FileUtils {
   def moveFileToFaulty(file: Path): Path = moveFileTo(file, faultyTorrents)
   def moveFileToDone(file: Path): Path = moveFileTo(file, FileUtils.doneTorrents)
 
-  def removeFile(res: ParsingResult): ParsingResult = {
+  def removeFile[T](res: ParsingResult[T]): ParsingResult[T] = {
     try {
       Files.delete(res.path)
     } catch {

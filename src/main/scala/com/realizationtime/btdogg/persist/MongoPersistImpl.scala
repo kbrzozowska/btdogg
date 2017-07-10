@@ -1,12 +1,13 @@
 package com.realizationtime.btdogg.persist
 
-import java.time.LocalDate
+import java.time.{Instant, LocalDate}
 
 import com.realizationtime.btdogg.BtDoggConfiguration.MongoConfig
 import com.realizationtime.btdogg.TKey
 import com.realizationtime.btdogg.parsing.ParsingResult
+import com.realizationtime.btdogg.parsing.ParsingResult.TorrentData
 import com.realizationtime.btdogg.persist.MongoPersist.{ConnectionWrapper, MongoWriteException, TorrentDocument}
-import com.realizationtime.btdogg.persist.MongoPersistImpl.{connect, isDuplicateIdError}
+import com.realizationtime.btdogg.persist.MongoPersistImpl.{MongoDuplicateException, connect, isDuplicateIdError}
 import com.realizationtime.btdogg.persist.MongoTorrentWriter.localDateToString
 import reactivemongo.api.collections.bson.BSONCollection
 import reactivemongo.api.commands.{LastError, UpdateWriteResult, WriteError, WriteResult}
@@ -21,19 +22,20 @@ class MongoPersistImpl(val uri: String)(implicit private val ec: ExecutionContex
   override val connection: ConnectionWrapper = connect(uri)
   private val torrents = connection.collection
 
-  override def save(sr: ParsingResult): Future[ParsingResult] = {
-    torrents.flatMap(coll => sr match {
-      case ParsingResult(_, _, Failure(_)) => Future.successful(sr)
+  override def save(sr: ParsingResult[TorrentData]): Future[ParsingResult[TorrentDocument]] = {
+    sr match {
+      case ParsingResult(_, _, Failure(_)) => Future.successful(sr.copyFailed())
       case ParsingResult(key, _, Success(torrentData)) =>
         val document = TorrentDocument.create(key, torrentData)
-        coll.insert(document).map(writeResult => writeResult.writeErrors match {
-          case head :: Nil if isDuplicateIdError(head) => sr
-          case Nil => sr
-          case otherErrors => ParsingResult(sr.key, sr.path, Failure(MongoWriteException(writeResult)))
-        })
-    }).recoverWith {
-      case lastError: LastError if isDuplicateIdError(lastError) => Future.successful(sr)
-      case ex => Future.failed(ex)
+        torrents.flatMap(coll =>
+          coll.insert(document).map(writeResult => writeResult.writeErrors match {
+            case head :: Nil if isDuplicateIdError(head) => ParsingResult[TorrentDocument](sr.key, sr.path, Failure(MongoDuplicateException(sr.key)))
+            case Nil => sr.copyTyped(document)
+            case otherErrors => ParsingResult[TorrentDocument](sr.key, sr.path, Failure(MongoWriteException(writeResult)))
+          }).recoverWith {
+            case lastError: LastError if isDuplicateIdError(lastError) => Future.successful(ParsingResult[TorrentDocument](sr.key, sr.path, Failure(MongoDuplicateException(sr.key))))
+            case ex => Future.failed(ex)
+          })
     }
   }
 
@@ -49,10 +51,13 @@ class MongoPersistImpl(val uri: String)(implicit private val ec: ExecutionContex
   override def incrementLiveness(key: TKey, date: LocalDate, requests: Int, announces: Int): Future[UpdateWriteResult] = {
     val selector = BSONDocument("_id" -> key)
     val dateStr = localDateToString(date)
-    val update = BSONDocument("$inc" -> BSONDocument(
-      s"liveness.requests.$dateStr" -> requests,
-      s"liveness.announces.$dateStr" -> announces
-    ))
+    val update = BSONDocument(
+      "$inc" -> BSONDocument(
+        s"liveness.requests.$dateStr" -> requests,
+        s"liveness.announces.$dateStr" -> announces
+      ),
+      "$set" -> BSONDocument("modification" -> Instant.now())
+    )
     torrents.flatMap(_.update(selector = selector, update = update))
   }
 
@@ -62,9 +67,12 @@ class MongoPersistImpl(val uri: String)(implicit private val ec: ExecutionContex
   private def incrementLiveness(key: TKey, field: String, date: LocalDate, count: Int): Future[UpdateWriteResult] = {
     val selector = BSONDocument("_id" -> key)
     val dateStr = localDateToString(date)
-    val update = BSONDocument("$inc" -> BSONDocument(
-      s"liveness.$field.$dateStr" -> count
-    ))
+    val update = BSONDocument(
+      "$inc" -> BSONDocument(
+        s"liveness.$field.$dateStr" -> count
+      ),
+      "$set" -> BSONDocument("modification" -> Instant.now())
+    )
     torrents.flatMap(_.update(selector = selector, update = update))
   }
 
@@ -80,6 +88,8 @@ class MongoPersistImpl(val uri: String)(implicit private val ec: ExecutionContex
 }
 
 object MongoPersistImpl {
+
+  case class MongoDuplicateException(key: TKey) extends RuntimeException(s"torrent with hash ${key.hash} already existed in Mongo")
 
   private def isDuplicateIdError(er: WriteError) = er.code == 11000
 

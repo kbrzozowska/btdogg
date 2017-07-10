@@ -13,7 +13,7 @@ import scala.compat.java8.OptionConverters
 import scala.util.{Failure, Success}
 
 object FileParser {
-  def parse(key: TKey, path: Path): ParsingResult = {
+  def parse(key: TKey, path: Path): ParsingResult[TorrentData] = {
     try {
       val ti: TorrentInfo = new TorrentInfo(path)
       ti.decode()
