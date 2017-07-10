@@ -61,4 +61,4 @@ mainClass in Compile := Some("com.realizationtime.btdogg.BtDoggMain")
 
 cancelable in Global := true
 fork in run := true
-javaOptions += "-Xmx2G"
+javaOptions += "-Xmx2500M"

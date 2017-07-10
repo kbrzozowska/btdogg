@@ -6,13 +6,14 @@ import java.time.LocalDate
 import com.realizationtime.btdogg.TKey
 import com.realizationtime.btdogg.parsing.{FileParser, ParsingResult}
 import com.realizationtime.btdogg.persist.MongoPersist.TorrentDocument
+import com.realizationtime.btdogg.persist.MongoPersistImpl.MongoDuplicateException
 import org.scalatest.Inside.inside
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 import reactivemongo.api.commands.UpdateWriteResult
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, Future, Promise}
-import scala.util.{Success, Try}
+import scala.util.{Failure, Success, Try}
 
 class MongoPersistImplTest extends FlatSpec with Matchers with BeforeAndAfterEach {
 
@@ -36,11 +37,20 @@ class MongoPersistImplTest extends FlatSpec with Matchers with BeforeAndAfterEac
     Await.result(p.future, tenSeconds)
   }
 
-  it should "ignore double saves silently" in {
+  it should "duplicated save should fill result as failure with MongoDuplicateException" in {
     val f1 = saveTorrent()
     assertInsertSucceeded(blockOnFuture(f1))
     val f2 = saveTorrent()
-    assertInsertSucceeded(blockOnFuture(f2))
+    val res: Try[ParsingResult[TorrentDocument]] = blockOnFuture(f2)
+    res shouldBe a[Success[_]]
+    val innerRes = res.get.result
+    innerRes shouldBe a[Failure[_]]
+    innerRes match {
+      case Failure(t) =>
+        t shouldBe a[MongoDuplicateException]
+      case other =>
+        assert(false, "t should be always a Failure, but it is: " + other)
+    }
   }
 
   it should "increment liveness counters correctly" in {
