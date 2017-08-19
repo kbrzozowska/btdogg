@@ -4,7 +4,7 @@ resolvers += "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/
 //resolvers += Resolver.jcenterRepo
 
 libraryDependencies ++= {
-  val akkaV          = "2.5.3"
+  val akkaV          = "2.5.4"
   val mldhtV         = "0.0.2-SNAPSHOT"
   val reactiveMongoV = "0.12.5"
   val elastic4sV     = "5.4.3"
@@ -54,7 +54,7 @@ lazy val root = (project in file(".")).
     organization := "com.realizationtime",
     name := "btdogg",
     version := "0.0.1",
-    scalaVersion := "2.12.2"
+    scalaVersion := "2.12.3"
   )
 
 mainClass in Compile := Some("com.realizationtime.btdogg.BtDoggMain")
