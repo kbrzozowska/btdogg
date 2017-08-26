@@ -1,11 +1,12 @@
-package com.realizationtime.btdogg.persist
+package com.realizationtime.btdogg.mongo
 
 import java.time.{Instant, LocalDate}
 
-import com.realizationtime.btdogg.TKey
-import com.realizationtime.btdogg.parsing.ParsingResult.{FileEntry, TorrentDir, TorrentFile}
-import com.realizationtime.btdogg.persist.MongoPersist.{Liveness, TorrentDocument}
-import com.realizationtime.btdogg.persist.MongoTorrentWriter.localDateToString
+import com.realizationtime.btdogg.commons.{FileEntry, TKey}
+import com.realizationtime.btdogg.commons.FileEntry.{TorrentDir, TorrentFile}
+import com.realizationtime.btdogg.commons.mongo.MongoTorrent.Liveness
+import com.realizationtime.btdogg.commons.mongo.MongoTorrent
+import com.realizationtime.btdogg.mongo.MongoTorrentWriter.localDateToString
 import reactivemongo.bson.{BSONDateTime, BSONDocument, BSONDocumentWriter, BSONInteger, BSONString, BSONWriter, Macros}
 
 trait MongoTorrentWriter {
@@ -20,7 +21,7 @@ trait MongoTorrentWriter {
     override def write(t: Instant): BSONDateTime = BSONDateTime(t.toEpochMilli)
   }
 
-  implicit val torrentWriter: BSONDocumentWriter[TorrentDocument] = Macros.writer[TorrentDocument]
+  implicit val torrentWriter: BSONDocumentWriter[MongoTorrent] = Macros.writer[MongoTorrent]
 
   implicit val livenessWriter: BSONDocumentWriter[Liveness] = Macros.writer[Liveness]
 

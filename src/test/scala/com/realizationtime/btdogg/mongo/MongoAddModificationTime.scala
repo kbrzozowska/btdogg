@@ -1,10 +1,10 @@
-package com.realizationtime.btdogg.persist
+package com.realizationtime.btdogg.mongo
 
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 
-import com.realizationtime.btdogg.TKey
-import com.realizationtime.btdogg.persist.MongoAddModificationTime.{AlreadyExisted, ResultsFolded, TorrentWithDates, Updated}
+import com.realizationtime.btdogg.commons.TKey
+import com.realizationtime.btdogg.mongo.MongoAddModificationTime.{AlreadyExisted, ResultsFolded, TorrentWithDates, Updated}
 import com.realizationtime.btdogg.utils.Counter
 import com.realizationtime.btdogg.utils.Counter.Tick
 import org.scalatest.prop.PropertyChecks

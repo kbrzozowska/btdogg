@@ -14,6 +14,7 @@ import akka.stream.scaladsl.{FileIO, Sink, Source}
 import akka.stream.{ActorMaterializer, IOResult}
 import akka.util.ByteString
 import com.realizationtime.btdogg.Statistics.TemporalUnitFromDuration
+import com.realizationtime.btdogg.commons.TKey
 import com.realizationtime.btdogg.utils.RedisUtils
 import org.scalatest.{FlatSpec, Ignore}
 import redis.{Cursor, RedisClient}

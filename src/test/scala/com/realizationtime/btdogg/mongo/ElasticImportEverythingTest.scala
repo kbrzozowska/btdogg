@@ -1,13 +1,13 @@
-package com.realizationtime.btdogg.persist
+package com.realizationtime.btdogg.mongo
 
 import java.time.Instant
 
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.realizationtime.btdogg.BtDoggConfiguration
+import com.realizationtime.btdogg.commons.FileEntry.{TorrentDir, TorrentFile}
 import com.realizationtime.btdogg.elastic.Elastic
 import com.realizationtime.btdogg.elastic.ElasticImportEverything.ElasticTorrent
-import com.realizationtime.btdogg.parsing.ParsingResult.{TorrentDir, TorrentFile}
 import org.scalatest.prop.PropertyChecks
 import org.scalatest.{FlatSpec, Ignore, Matchers}
 

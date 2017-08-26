@@ -3,7 +3,7 @@ package com.realizationtime.btdogg.filtering
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
 import com.realizationtime.btdogg.BtDoggConfiguration.RedisConfig
-import com.realizationtime.btdogg.TKey
+import com.realizationtime.btdogg.commons.TKey
 import com.realizationtime.btdogg.filtering.EntryFilter.{ANNOUNCED_POSTFIX, REQUEST_POSTFIX}
 import com.realizationtime.btdogg.filtering.FilteringProcess.Result
 import com.realizationtime.btdogg.filtering.FilteringProcess.Result.Result

@@ -1,5 +1,6 @@
 package com.realizationtime.btdogg
 
+import com.realizationtime.btdogg.commons.TKey
 import org.scalatest.Inside.inside
 import org.scalatest.prop.PropertyChecks
 import org.scalatest.{FlatSpec, Matchers}

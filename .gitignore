@@ -1,3 +1,4 @@
+/frontend/server/src/main/resources/ember_static/
 *.class
 *.log
 /application.conf

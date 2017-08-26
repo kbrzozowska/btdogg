@@ -6,7 +6,7 @@ import akka.actor.{Actor, ActorLogging, ActorRef}
 import com.realizationtime.btdogg.BtDoggConfiguration.HashSourcesConfig
 import com.realizationtime.btdogg.BtDoggConfiguration.HashSourcesConfig.prefixStep
 import com.realizationtime.btdogg.BtDoggConfiguration.ScrapingConfig.torrentsTmpDir
-import com.realizationtime.btdogg.TKey
+import com.realizationtime.btdogg.commons.TKey
 import com.realizationtime.btdogg.dhtmanager.DhtLifecycleController.{NodeStopped, StopNode}
 import com.realizationtime.btdogg.dhtmanager.DhtsManager.{Boot, BootingPhase, NodeReady, Shutdown, ShutdownCompleted}
 

@@ -10,10 +10,12 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Keep, Sink}
 import com.realizationtime.btdogg.BtDoggConfiguration
 import com.realizationtime.btdogg.BtDoggConfiguration.ElasticConfigI
+import com.realizationtime.btdogg.commons.FileEntry
+import com.realizationtime.btdogg.commons.FileEntry.{TorrentDir, TorrentFile}
+import com.realizationtime.btdogg.commons.mongo.MongoTorrent
+import com.realizationtime.btdogg.commons.mongo.MongoTorrent.Liveness
 import com.realizationtime.btdogg.elastic.ElasticImportEverything.ElasticTorrent
-import com.realizationtime.btdogg.parsing.ParsingResult.{FileEntry, TorrentDir, TorrentFile}
-import com.realizationtime.btdogg.persist.MongoPersist.TorrentDocument
-import com.realizationtime.btdogg.persist.{MongoPersist, MongoTorrentReader}
+import com.realizationtime.btdogg.mongo.{MongoConnectionWrapper, MongoTorrentReader}
 import com.realizationtime.btdogg.utils.Counter
 import com.realizationtime.btdogg.utils.Counter.Tick
 import com.sksamuel.elastic4s.TcpClient
@@ -27,7 +29,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 
 private[elastic] class ElasticImportEverything(private val client: TcpClient,
-                                               private val connection: MongoPersist.ConnectionWrapper,
+                                               private val connection: MongoConnectionWrapper,
                                                private val config: ElasticConfigI)(implicit private val ec: ExecutionContext,
                                                                                    implicit private val mat: ActorMaterializer,
                                                                                    implicit private val system: ActorSystem) extends MongoTorrentReader {
@@ -44,7 +46,7 @@ private[elastic] class ElasticImportEverything(private val client: TcpClient,
     connection.collection
       .map(_.find(BSONDocument.empty)
         .sort(BSONDocument("_id" -> 1))
-        .cursor[TorrentDocument]().documentSource())
+        .cursor[MongoTorrent]().documentSource())
       .flatMap(source => {
         import com.sksamuel.elastic4s.ElasticDsl._
         implicit val torrentRequestBuilder = new RequestBuilder[ElasticTorrent] {
@@ -102,7 +104,7 @@ object ElasticImportEverything {
 
   object ElasticTorrent {
 
-    def apply(mongoTorrent: TorrentDocument): ElasticTorrent = {
+    def apply(mongoTorrent: MongoTorrent): ElasticTorrent = {
       val files: List[ElasticFile] = flatFiles(mongoTorrent.data)
       val liveness: Int = flatLiveness(mongoTorrent.liveness)
       ElasticTorrent(
@@ -131,7 +133,7 @@ object ElasticImportEverything {
 
     val noOlderThan: LocalDate = Instant.now().minus(17, ChronoUnit.DAYS).atZone(BtDoggConfiguration.timeZone).toLocalDate
 
-    def flatLiveness(liveness: MongoPersist.Liveness): Int = {
+    def flatLiveness(liveness: Liveness): Int = {
       val announces = liveness.announces.filterKeys(!_.isBefore(noOlderThan))
         .values.sum
       val anyRequests = liveness.requests.filterKeys(!_.isBefore(noOlderThan)).nonEmpty

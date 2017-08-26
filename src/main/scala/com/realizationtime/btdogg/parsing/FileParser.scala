@@ -4,8 +4,8 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Path
 import java.util
 
-import com.realizationtime.btdogg.TKey
-import com.realizationtime.btdogg.parsing.ParsingResult.{FileEntry, TorrentData, TorrentDir, TorrentFile}
+import com.realizationtime.btdogg.commons.FileEntry.{TorrentDir, TorrentFile}
+import com.realizationtime.btdogg.commons.{FileEntry, ParsingResult, TKey, TorrentData}
 import the8472.mldht.cli.TorrentInfo
 
 import scala.collection.JavaConverters._

@@ -1,4 +1,4 @@
-package com.realizationtime.btdogg.persist
+package com.realizationtime.btdogg.mongo
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
@@ -12,7 +12,7 @@ trait TestTorrentReader {
 
   val mongo = MongoPersist(BtDoggConfiguration.MongoConfig.uri)
 
-  val connection: MongoPersist.ConnectionWrapper = mongo.connection
+  val connection: MongoConnectionWrapper = mongo.connection
   implicit val system = ActorSystem()
   implicit val mat = ActorMaterializer()
 

@@ -5,7 +5,7 @@ import java.nio.file.{Files, Path, Paths}
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import com.realizationtime.btdogg.BtDoggConfiguration.HashSourcesConfig.{bootNodeHost, bootNodePort, storageBaseDir}
-import com.realizationtime.btdogg.TKey
+import com.realizationtime.btdogg.commons.TKey
 import com.realizationtime.btdogg.dhtmanager.DhtLifecycleController.{NodeStopped, StopNode}
 import com.realizationtime.btdogg.dhtmanager.DhtsManager.NodeReady
 import com.realizationtime.btdogg.hashessource.HashesSource

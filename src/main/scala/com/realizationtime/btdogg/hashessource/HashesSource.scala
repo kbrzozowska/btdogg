@@ -1,7 +1,7 @@
 package com.realizationtime.btdogg.hashessource
 
 import akka.actor.{Actor, ActorRef}
-import com.realizationtime.btdogg.TKey
+import com.realizationtime.btdogg.commons.TKey
 import com.realizationtime.btdogg.hashessource.HashesSource.{SpottedHash, Subscribe}
 import lbms.plugins.mldht.kad.messages.{AnnounceRequest, GetPeersRequest, MessageBase}
 import lbms.plugins.mldht.kad.{DHT, Key}

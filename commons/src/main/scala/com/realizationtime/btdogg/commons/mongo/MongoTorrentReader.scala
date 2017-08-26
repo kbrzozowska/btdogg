@@ -1,10 +1,11 @@
-package com.realizationtime.btdogg.persist
+package com.realizationtime.btdogg.mongo
 
 import java.time.{Instant, LocalDate}
 
-import com.realizationtime.btdogg.TKey
-import com.realizationtime.btdogg.parsing.ParsingResult.{FileEntry, TorrentDir, TorrentFile}
-import com.realizationtime.btdogg.persist.MongoPersist.{Liveness, TorrentDocument}
+import com.realizationtime.btdogg.commons.{FileEntry, TKey}
+import com.realizationtime.btdogg.commons.FileEntry.{TorrentDir, TorrentFile}
+import com.realizationtime.btdogg.commons.mongo.MongoTorrent.Liveness
+import com.realizationtime.btdogg.commons.mongo.MongoTorrent
 import reactivemongo.bson.{BSONDateTime, BSONDocument, BSONDocumentReader, BSONNumberLike, BSONReader, BSONValue}
 
 trait MongoTorrentReader {
@@ -54,13 +55,13 @@ trait MongoTorrentReader {
     override def read(bson: BSONDateTime): Instant = Instant.ofEpochMilli(bson.value)
   }
 
-  implicit object TorrentDocumentReader extends BSONDocumentReader[TorrentDocument] {
-    override def read(bson: BSONDocument): TorrentDocument = {
+  implicit object TorrentDocumentReader extends BSONDocumentReader[MongoTorrent] {
+    override def read(bson: BSONDocument): MongoTorrent = {
       val data = bson.getAs[List[BSONDocument]]("data").get
         .map(bson => {
           bson.as[FileEntry]
         })
-      TorrentDocument(
+      MongoTorrent(
         title = bson.getAs[String]("title"),
         _id = TKey(bson.getAs[String]("_id").get),
         totalSize = bson.getAs[BSONNumberLike]("totalSize").map(_.toLong).get,

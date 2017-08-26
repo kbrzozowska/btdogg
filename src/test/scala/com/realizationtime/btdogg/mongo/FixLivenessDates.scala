@@ -1,12 +1,12 @@
-package com.realizationtime.btdogg.persist
+package com.realizationtime.btdogg.mongo
 
 import java.time.{Instant, LocalDate}
 import java.util.concurrent.TimeUnit
 
-import com.realizationtime.btdogg.TKey
+import com.realizationtime.btdogg.commons.TKey
+import com.realizationtime.btdogg.commons.mongo.MongoTorrent.Liveness
 import com.realizationtime.btdogg.filtering.CountersFlusher
-import com.realizationtime.btdogg.persist.FixLivenessDates.{TorrentParsed, normalizeLiveness}
-import com.realizationtime.btdogg.persist.MongoPersist.Liveness
+import com.realizationtime.btdogg.mongo.FixLivenessDates.{TorrentParsed, normalizeLiveness}
 import org.scalatest.prop.PropertyChecks
 import org.scalatest.{FlatSpec, Ignore, Matchers}
 import reactivemongo.akkastream.cursorProducer

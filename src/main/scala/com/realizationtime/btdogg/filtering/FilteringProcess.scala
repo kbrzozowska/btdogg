@@ -4,9 +4,9 @@ import akka.actor.ActorRef
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.Source
 import com.realizationtime.btdogg.BtDoggConfiguration.standardBufferSize
-import com.realizationtime.btdogg.TKey
+import com.realizationtime.btdogg.commons.TKey
 import com.realizationtime.btdogg.hashessource.HashesSource.SpottedHash
-import com.realizationtime.btdogg.persist.MongoPersist
+import com.realizationtime.btdogg.mongo.MongoPersist
 import redis.RedisClient
 
 import scala.concurrent.ExecutionContext

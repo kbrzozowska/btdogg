@@ -8,7 +8,7 @@ import java.util.Collections
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import com.realizationtime.btdogg.BtDoggConfiguration.ScrapingConfig.{torrentFetchTimeout, torrentsTmpDir}
-import com.realizationtime.btdogg.TKey
+import com.realizationtime.btdogg.commons.TKey
 import com.realizationtime.btdogg.scraping.TorrentScraper.{Message, ScrapeRequest, ScrapeResult, ScraperStoppedException, Shutdown}
 import lbms.plugins.mldht.kad.DHT
 import the8472.bt.TorrentUtils

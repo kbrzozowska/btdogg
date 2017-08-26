@@ -4,7 +4,7 @@ import java.nio.file.{Files, Path}
 import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 
 import com.realizationtime.btdogg.BtDoggConfiguration
-import com.realizationtime.btdogg.parsing.ParsingResult
+import com.realizationtime.btdogg.commons.ParsingResult
 import com.typesafe.scalalogging.Logger
 
 object FileUtils {

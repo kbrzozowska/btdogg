@@ -2,10 +2,9 @@ package com.realizationtime.btdogg.parsing
 
 import java.nio.file.{Files, Paths}
 
-import com.realizationtime.btdogg.TKey
-import com.realizationtime.btdogg.parsing.ParsingResult.TorrentData
-import org.scalatest.{FlatSpec, Matchers}
+import com.realizationtime.btdogg.commons.{ParsingResult, TKey, TorrentData}
 import org.scalatest.Inside.inside
+import org.scalatest.{FlatSpec, Matchers}
 
 import scala.util.{Failure, Success}
 
@@ -16,11 +15,11 @@ class FileParserTest extends FlatSpec with Matchers {
     require(Files.isRegularFile(testFile))
     val parsingResult = FileParser.parse(TKey.fromPrefix(42), testFile)
     inside(parsingResult) {
-      case ParsingResult(_,_, res) =>
-        res should not be a [Failure[_]]
+      case ParsingResult(_, _, res) =>
+        res should not be a[Failure[_]]
       case _ =>
     }
-//    println(parsingResult)
+    //    println(parsingResult)
   }
 
   it should "parse torrent containing one file" in {
@@ -28,10 +27,10 @@ class FileParserTest extends FlatSpec with Matchers {
     require(Files.isRegularFile(testFile))
     val parsingResult = FileParser.parse(TKey.fromPrefix(42), testFile)
     inside(parsingResult) {
-      case ParsingResult(_,_, res) =>
-        res should not be a [Failure[_]]
+      case ParsingResult(_, _, res) =>
+        res should not be a[Failure[_]]
         inside(res) {
-          case Success(TorrentData(_,_, files)) =>
+          case Success(TorrentData(_, _, files)) =>
             files should have size 1
         }
     }

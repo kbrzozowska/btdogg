@@ -7,15 +7,16 @@ import akka.stream.scaladsl.{Keep, Sink}
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
 import akka.util.Timeout
 import com.realizationtime.btdogg.BtDoggConfiguration.MongoConfig.parallelismLevel
-import com.realizationtime.btdogg.BtDoggConfiguration.{ElasticConfig, RedisConfig}
+import com.realizationtime.btdogg.BtDoggConfiguration.RedisConfig
 import com.realizationtime.btdogg.BtDoggConfiguration.ScrapingConfig.torrentFetchTimeout
 import com.realizationtime.btdogg.RootActor.{GetScrapersHub, SubscribePublisher, UnsubscribePublisher}
+import com.realizationtime.btdogg.commons.ParsingResult
+import com.realizationtime.btdogg.commons.mongo.MongoTorrent
 import com.realizationtime.btdogg.elastic.Elastic
 import com.realizationtime.btdogg.elastic.Elastic.IndexAlreadyExisted
 import com.realizationtime.btdogg.filtering.CountersFlusher.Stop
 import com.realizationtime.btdogg.filtering.{CountersFlusher, FilteringProcess}
-import com.realizationtime.btdogg.parsing.ParsingResult
-import com.realizationtime.btdogg.persist.MongoPersist
+import com.realizationtime.btdogg.mongo.MongoPersist
 import com.realizationtime.btdogg.scraping.ScrapingProcess
 import com.realizationtime.btdogg.utils.Counter
 import com.realizationtime.btdogg.utils.Counter.Tick
@@ -132,7 +133,7 @@ class BtDoggMain {
               }
           })
           .via(elastic.insertOne)
-          .map((wtf: ParsingResult[MongoPersist.TorrentDocument]) => wtf)
+          .map((wtf: ParsingResult[MongoTorrent]) => wtf)
           .filter(_.result.isSuccess)
           .map(Counter(window = 45 seconds))
           .toMat(Sink.foreach {

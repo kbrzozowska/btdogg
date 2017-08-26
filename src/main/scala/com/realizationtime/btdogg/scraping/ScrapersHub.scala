@@ -1,7 +1,7 @@
 package com.realizationtime.btdogg.scraping
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
-import com.realizationtime.btdogg.TKey
+import com.realizationtime.btdogg.commons.TKey
 import com.realizationtime.btdogg.scraping.ScrapersHub.{AddScrapers, Message, ScrapeResult}
 import com.realizationtime.btdogg.scraping.TorrentScraper.ScrapeRequest
 

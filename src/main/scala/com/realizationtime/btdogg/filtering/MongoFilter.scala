@@ -3,9 +3,9 @@ package com.realizationtime.btdogg.filtering
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
 import com.realizationtime.btdogg.BtDoggConfiguration.{MongoConfig, RedisConfig}
-import com.realizationtime.btdogg.TKey
+import com.realizationtime.btdogg.commons.TKey
 import com.realizationtime.btdogg.filtering.FilteringProcess.Result.{ALREADY_EXISTED, NEW}
-import com.realizationtime.btdogg.persist.MongoPersist
+import com.realizationtime.btdogg.mongo.MongoPersist
 import com.typesafe.scalalogging.Logger
 import redis.RedisClient
 

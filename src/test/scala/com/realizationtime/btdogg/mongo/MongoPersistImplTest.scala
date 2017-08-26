@@ -1,12 +1,12 @@
-package com.realizationtime.btdogg.persist
+package com.realizationtime.btdogg.mongo
 
 import java.nio.file.Paths
 import java.time.LocalDate
 
-import com.realizationtime.btdogg.TKey
-import com.realizationtime.btdogg.parsing.{FileParser, ParsingResult}
-import com.realizationtime.btdogg.persist.MongoPersist.TorrentDocument
-import com.realizationtime.btdogg.persist.MongoPersistImpl.MongoDuplicateException
+import com.realizationtime.btdogg.commons.mongo.MongoTorrent
+import com.realizationtime.btdogg.commons.{ParsingResult, TKey}
+import com.realizationtime.btdogg.mongo.MongoPersistImpl.MongoDuplicateException
+import com.realizationtime.btdogg.parsing.FileParser
 import org.scalatest.Inside.inside
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 import reactivemongo.api.commands.UpdateWriteResult
@@ -41,7 +41,7 @@ class MongoPersistImplTest extends FlatSpec with Matchers with BeforeAndAfterEac
     val f1 = saveTorrent()
     assertInsertSucceeded(blockOnFuture(f1))
     val f2 = saveTorrent()
-    val res: Try[ParsingResult[TorrentDocument]] = blockOnFuture(f2)
+    val res: Try[ParsingResult[MongoTorrent]] = blockOnFuture(f2)
     res shouldBe a[Success[_]]
     val innerRes = res.get.result
     innerRes shouldBe a[Failure[_]]
@@ -72,11 +72,11 @@ class MongoPersistImplTest extends FlatSpec with Matchers with BeforeAndAfterEac
     res shouldBe a[Success[_]]
   }
 
-  def saveTorrent(): Future[ParsingResult[TorrentDocument]] = {
+  def saveTorrent(): Future[ParsingResult[MongoTorrent]] = {
     mongoPersist.save(parsingResult)
   }
 
-  private def assertInsertSucceeded(resTry: Try[ParsingResult[TorrentDocument]]) = {
+  private def assertInsertSucceeded(resTry: Try[ParsingResult[MongoTorrent]]) = {
     resTry shouldBe a[Success[_]]
     val res = resTry.get
     inside(res) {

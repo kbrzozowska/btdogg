@@ -6,7 +6,7 @@ import java.time.format.DateTimeFormatter
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
 import com.realizationtime.btdogg.BtDoggConfiguration.RedisConfig
-import com.realizationtime.btdogg.TKey
+import com.realizationtime.btdogg.commons.TKey
 import com.realizationtime.btdogg.filtering.FilteringProcess.Result.{ALREADY_EXISTED, NEW}
 import redis.RedisClient
 

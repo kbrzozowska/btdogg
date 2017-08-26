@@ -1,6 +1,7 @@
 package com.realizationtime.btdogg
 
 import com.realizationtime.btdogg.MultiDhtsTest.{CheckStackTrace, NaggerDuckException, ToMock}
+import com.realizationtime.btdogg.commons.TKey
 import lbms.plugins.mldht.kad.DHT
 import org.mockito.Mockito
 import org.mockito.Mockito.{verifyNoMoreInteractions, when, withSettings}

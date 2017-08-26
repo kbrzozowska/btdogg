@@ -6,7 +6,8 @@ const Router = Ember.Router.extend({
   rootURL: config.rootURL
 });
 
-Router.map(function() {
+Router.map(function () {
+  this.route('torrent', {path: "/t/:torrent_id"});
 });
 
 export default Router;

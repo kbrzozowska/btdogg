@@ -7,9 +7,8 @@ import akka.util.Timeout
 import com.realizationtime.btdogg.BtDoggConfiguration.HashSourcesConfig.nodesCount
 import com.realizationtime.btdogg.BtDoggConfiguration.RedisConfig
 import com.realizationtime.btdogg.BtDoggConfiguration.ScrapingConfig.{simultaneousTorrentsPerNode, torrentFetchTimeout}
-import com.realizationtime.btdogg.TKey
-import com.realizationtime.btdogg.parsing.ParsingResult.TorrentData
-import com.realizationtime.btdogg.parsing.{FileParser, ParsingResult}
+import com.realizationtime.btdogg.commons.{ParsingResult, TKey, TorrentData}
+import com.realizationtime.btdogg.parsing.FileParser
 import com.realizationtime.btdogg.scraping.ScrapersHub.ScrapeResult
 import com.realizationtime.btdogg.utils.FileUtils
 import com.typesafe.scalalogging.Logger

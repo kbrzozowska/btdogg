@@ -9,10 +9,11 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.realizationtime.btdogg.BtDoggConfiguration.MongoConfig
 import com.realizationtime.btdogg.BtDoggConfiguration.RedisConfig.parallelismLevel
-import com.realizationtime.btdogg.{BtDoggConfiguration, TKey}
+import com.realizationtime.btdogg.BtDoggConfiguration
+import com.realizationtime.btdogg.commons.TKey
 import com.realizationtime.btdogg.filtering.CountersFlusher._
 import com.realizationtime.btdogg.filtering.EntryFilter.{ANNOUNCED_POSTFIX, REQUEST_POSTFIX}
-import com.realizationtime.btdogg.persist.MongoPersist
+import com.realizationtime.btdogg.mongo.MongoPersist
 import com.realizationtime.btdogg.utils.RedisUtils
 import com.realizationtime.btdogg.utils.RedisUtils.KV
 import redis.RedisClient

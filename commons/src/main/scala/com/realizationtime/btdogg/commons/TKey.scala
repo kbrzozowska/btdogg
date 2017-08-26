@@ -1,6 +1,6 @@
-package com.realizationtime.btdogg
+package com.realizationtime.btdogg.commons
 
-import com.realizationtime.btdogg.TKey.VALID_HASH_LENGTH
+import com.realizationtime.btdogg.commons.TKey.VALID_HASH_LENGTH
 import lbms.plugins.mldht.kad.Key
 
 import scala.language.postfixOps
