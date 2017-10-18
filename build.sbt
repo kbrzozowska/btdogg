@@ -9,6 +9,8 @@ val commonsDependencies = {
     "com.realizationtime.mldht.core" % "libmldht" % mldhtV,
     "org.reactivemongo"          %% "reactivemongo" % reactiveMongoV,
     "org.reactivemongo"          %% "reactivemongo-akkastream" % reactiveMongoV,
+    "ch.qos.logback"              %  "logback-classic" % logbackV,
+    "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % jacksonJsr310,
   )
 }
 
@@ -27,13 +29,11 @@ val rootDependencies = {
     ),
     "com.sksamuel.elastic4s"     %% "elastic4s-streams" % elastic4sV,
     "com.sksamuel.elastic4s"     %% "elastic4s-jackson" % elastic4sV,
-    "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % jacksonJsr310,
     "com.github.etaty"           %% "rediscala" % redisScalaV,
     "org.scalatest"              %% "scalatest" % scalaTestV % "test",
     "org.mockito"                 % "mockito-core" % mockitoV % "test",
     //    "org.scalamock"                   %%  "scalamock-scalatest-support" % scalaMockV  % "test",
     "org.scalacheck"             %% "scalacheck" % scalaCheckV % "test",
-    "ch.qos.logback"              %  "logback-classic" % logbackV,
     "com.typesafe.scala-logging" %% "scala-logging" % scalaLoggingV
   )
 }
@@ -44,6 +44,7 @@ val frontendDependencies = {
     "com.iheart"        %% "ficus" % ficusV,
     "com.typesafe.akka" %% "akka-http" % akkaHttpV,
     "com.typesafe.akka" %% "akka-http-spray-json" % akkaHttpV,
+    "de.heikoseeberger" %% "akka-http-jackson" % akkaHttpJacksonV
   )
 }
 

@@ -9,7 +9,9 @@ trait Config {
   import ArbitraryTypeReader._
 
   protected case class HttpConfig(interface: String, port: Int)
+  protected case class MongoConfig(uri: String)
 
   private val config = ConfigFactory.load()
   protected val httpConfig: HttpConfig = config.as[HttpConfig]("http")
+  protected val mongoConfig: MongoConfig = config.as[MongoConfig]("mongo")
 }
